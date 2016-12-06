@@ -51,7 +51,7 @@ object Prompt extends DoAny {
   var browser: Option[Browser] = None
   var dictionary: Option[Dictionary] = None
 
-  trait PromptError
+  trait PromptError extends Error
   object NoDictionary extends PromptError
   object NoDictionaryOrder extends PromptError
   object NoBrowser extends PromptError

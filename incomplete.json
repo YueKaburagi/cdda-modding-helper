@@ -13,4 +13,18 @@
     "description": "__description",
     "__description_en": "this is a test suite",
     "why": 3456
+},{
+    "__import": [{
+	"ref": {
+	    "type": "recipe",
+	    "result": "lye_powder",
+	    "id_suffix": "__undefined",
+	},
+	"bind": "o",
+	"import": "as template",
+    }],
+    "difficulty": "${o.difficulty + 1}",
+    "tools": "${o.tools ++ this.__tools}",
+    "__tools": [ [["witch_caldron", 1]] ],
+
 }]

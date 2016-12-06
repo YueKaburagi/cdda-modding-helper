@@ -58,7 +58,7 @@ object Log {
  * {
  *   "__import": [{"type":,"id":,"result":,"id_suffix":, ..., "__part": "all" }] <-optional
  *   "__import": [{
- *     "original": {
+ *     "ref": {
  *       "type": "recipe",
  *       "result": "lye_powder",
  *       "id_suffix": "__undefined"
@@ -125,6 +125,11 @@ trait Loader {
 	Log.error("parsing error on "+ jsonfile)
 	JObject(Nil)
     }
+  def loadOption(f: File): Option[JValue] = 
+    f.exists match {
+      case true => load(f).some
+      case false => None
+    }
 
   def listFileRcursive(dir: File): List[File] =
     {dir listFiles (
@@ -152,19 +157,21 @@ trait Loader {
 object Main extends Loader {
 
   def main(args: Array[String]) {
+    loadOption(new File("__config.json")) map { // このあたりLazyでいいと思う
+      case JObject(fs) => fs foreach {
+	case ("json_root_dir", JString(jsonRootDir)) =>
+	  Prompt.browser = new Browser(recursiveLoad(new File(jsonRootDir))).some
+	  ImportObject.browser = Prompt.browser
+	case ("po_path", JString(poPath)) =>
+	  Prompt.dictionary = DictLoader.load(new File(poPath)).some
+	case _ => // do nothing
+      }
+      case _ => Log.error("format error: \"__confing.json\"")
+    }
+
     args match {
       case Array("-b") =>
-	load(new File("__config.json")) match {
-	  case JObject(fs) => fs foreach {
-	    case ("json_root_dir", JString(jsonRootDir)) =>
-	      Prompt.browser = new Browser(recursiveLoad(new File(jsonRootDir))).some
-	    case ("po_path", JString(poPath)) =>
-	      Prompt.dictionary = DictLoader.load(new File(poPath)).some
-	    case _ => // do nothing
-	  }
-	  case _ => Log.error("format error: \"__confing.json\"")
-	}
-      Prompt.prompt()
+	Prompt.prompt()
       case Array("-b", jsonDir, poFile) =>
 	Prompt.browser = new Browser(recursiveLoad(new File(jsonDir))).some
         Prompt.dictionary = DictLoader.load(new File(poFile)).some
