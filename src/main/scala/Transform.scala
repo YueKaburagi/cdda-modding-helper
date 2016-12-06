@@ -345,23 +345,20 @@ object ImportObject extends DoAny {
 		case JString(target(s)) => 
 		  splitString(s) flatMap {calc(jo, ios, _)}
 		case jv => jv.right
-	      }} 
-/*
-	    map {
-		v => 
+	      }} map {JObject(_)} map {
+		v: JValue => 
 		  val l = ios filter {
 		    case ImportedObject(_,"as template",_) => true
 		    case _ => false
 		  } map {
 		    case ImportedObject(i, _, _) => i
 		  }
-		(v /: l)(_ merge _)}
-// */
+		(v /: l)( _ merge _ )}
 	  } match {
 	    case -\/(e) => Log.error(e.toString); JObject(Nil)
 	    case \/-(r) => r
 	  }
-	} 
+	}
       case JArray(vs) => JArray(vs map build)
       case x => x
     }

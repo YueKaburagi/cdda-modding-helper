@@ -4,6 +4,8 @@
 *.class
 *.log
 
+/__config.json
+
 .cache
 .history
 .lib/

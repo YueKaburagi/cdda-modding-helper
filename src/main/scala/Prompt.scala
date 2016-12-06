@@ -250,15 +250,15 @@ object Prompt extends DoAny {
   "" ::
   "OPTIONS" ::
   " up to <number>  検索結果の最大表示数を変更する デフォルトでは25" ::
-  " name            poファイル内の名前っぽいもののみを対象にする" ::
   " id              見つけたjsonオブジェクトのidの値のみを表示する" ::
-  " no <quantifier> 直後の限定子を否定。限定子は以下" ::
   "" ::
   "QUANTIIFIER" :: 
-  " item            検索対象をアイテムに限定する (volume=)と等価" ::
   " <key>=<string>     〃  を特定のキーと値の組を持つjsonオブジェクトに限定する" ::
   " <key>=             〃  を   特定のキー   を持つ        〃           " ::
   " =<string>          〃  を   特定の値     を持つ        〃           " ::
+  " name            poファイル内の名前っぽいもののみを対象にする" ::
+  " item            検索対象をアイテムに限定する (volume=)と等価" ::
+  " no <quantifier> 直後の限定子を否定する" ::
   Nil
 
 }
