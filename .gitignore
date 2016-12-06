@@ -1,0 +1,12 @@
+*~
+\#*#
+
+*.class
+*.log
+
+.cache
+.history
+.lib/
+target/
+
+transformed/

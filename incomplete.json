@@ -1,0 +1,16 @@
+[{
+    "__templates": ["ex_armor", "material_cotton", "legginth"],
+    "id": "test_moddedItem",
+    "name": "__name",
+    "__name_en": "testModItem",
+    "description": "__description",
+    "__description_ja": "スキニーなレギンスです",
+    "weight": 200,
+    "volume": 4
+},{
+    "id": "replace test",
+    "name": "__name",
+    "description": "__description",
+    "__description_en": "this is a test suite",
+    "why": 3456
+}]

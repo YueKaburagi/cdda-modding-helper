@@ -1,0 +1,7 @@
+{
+    "recipe": {
+	"type": "recipe",
+	"autolearn": true,
+	"reversible": true,
+    }
+}
