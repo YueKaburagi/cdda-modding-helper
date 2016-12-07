@@ -199,6 +199,7 @@ object ImportObject extends DoAny {
   object Reserved extends ImportError
   case class FormatError(opt: String) extends ImportError
   case class NotFoundIdent(ident: String) extends ImportError
+  case class NoSupport(code: String) extends ImportError
 
   private[this] def mkQuery(fs: List[JField]): List[JObjectFilter] =
     fs map {
@@ -231,6 +232,7 @@ object ImportObject extends DoAny {
 	case -\/(_) => r match {
 	  case "as template" => None.right
 	  case "bind only" => NoBindIdent.left
+	  case x => NoSupport(x).left
 	}
 	case \/-(x) => x match {
 	  case JString("this") => Reserved.left

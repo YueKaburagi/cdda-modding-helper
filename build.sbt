@@ -14,5 +14,11 @@ lazy val root = (project in file(".")).
     scalacOptions ++= Seq("-feature", "-unchecked", "-deprecation", "-Xlint",
 			  "-Ywarn-dead-code", "-Ywarn-unused", "-Ywarn-unused-import"),
     mainClass in assembly := Some("cddamod.Main"),
+    assemblyMergeStrategy in assembly := {
+      case json if json endsWith ".json" => MergeStrategy.discard
+      case x => 
+	val oldStrategy = (assemblyMergeStrategy in assembly).value
+	oldStrategy(x)
+    },
     test in assembly := {}
   )
