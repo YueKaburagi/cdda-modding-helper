@@ -34,74 +34,23 @@ object Log {
  * templateで name:__name としているときに、
  * それを inherit した場所への replace が失敗する
  * というかそこだけmergeに失敗する。 (たぶん型が異なるせい)
- * あとは [[[]]]に[[[]]]をマージできない こっちは型が合ってるはずなので……？？
- * 自力で merge 書かないとかも
  * めんどくさいなー
- *
- * あとは簡易ブラウザ機能が欲しいし、moファイル読んで訳語からの検索もしたい
- * moファイルに関して、GNU gettext から提供されているライブラリその他は
- * id -> msgの片方向変換を提供するもので、逆引きについては考慮されていないっぽい
- *
+ * 
  * ブラウザ機能にkeydown検出を使いたくなったけど、java nativeでは無理なので、
  * 保留
  *
  * そのjsonオブジェクトがどのfileにあったかも表示したい
  *
- * __function,json
+ * __config,json
  * {
- *   ? "key" *1.4
+ *   "#6001": {
+ *     "export_to": "/path/to/cdda/data/mods",
+ *     "cdda_json_root": "/path/to/cdda/data/json",
+ *     "po_file": "path/to/po_file.po"
+ *   }
  * }
+ * ${arr -- arr}こういうことしたいんだけど、右辺項どうやって求めよう
 // */
-/*** later
- * 本体jsonから一意に抽出できる値の組み合わせのみ許可
- * <instance>.json
- * {
- *   "__import": [{"type":,"id":,"result":,"id_suffix":, ..., "__part": "all" }] <-optional
- *   "__import": [{
- *     "ref": {
- *       "type": "recipe",
- *       "result": "lye_powder",
- *       "id_suffix": "__undefined"
- *     },
- *     "bind": "o",
- *     "import": "as template", <- "bind only", "as template"
- *   }]
- *   "difficulty": "${o.difficulty + 1}",
- *   "tools": "${o.tools ++ this.__tools}"
- *   "__tools": [ [["witch_caldron", 1 ]] ]
- * }
- * merge rule の調整； /: を :\ に。rhsの要素が優先されるため
- * import などで field を erase したいときがある
-// */
-/*
-case class Components(cs: List[List[(String,Int)]]) {
-  
-}
-class Sir extends Serialzer[Components] with UT {
-  private val ComponentsClass = classOf[Components]
-
-  def deserialize(implicit format: Formats): PartialFunction[(TypeInfo, JValue), Components] = {
-    case (TypeInfo(ComponentsClass, _), json) => json match {
-      case JArray(vs0) => mapE(vs0) {pim} match {
-	case 
-      }
-    }
-  }
-  private def pim(jv: JValue): (String \/ List[(String,Int)]) = {
-    jv match {
-      case JArray(vs1) => mapE(vs1) {kv}
-      case _ => "not a [[]]".left
-    }
-  }
-  private def kv(jv: JValue): (String \/ (String,Int)) = {
-    jv match {
-      case JArray(JString(id) :: JInt(amount) :: Nil) => (id, amount).right
-      case _ => "not a [string, num]".left
-    }
-  }
-}
-// */
-
 
 class Browser(jsons: List[JValue]) {
   def lookupXs(fs: Seq[JObjectFilter]): List[JValue] =
