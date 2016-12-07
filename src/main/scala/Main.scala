@@ -70,7 +70,8 @@ object Log {
  *   "tools": "${o.tools ++ this.__tools}"
  *   "__tools": [ [["witch_caldron", 1 ]] ]
  * }
- *
+ * merge rule の調整； /: を :\ に。rhsの要素が優先されるため
+ * import などで field を erase したいときがある
 // */
 /*
 case class Components(cs: List[List[(String,Int)]]) {
@@ -100,6 +101,7 @@ class Sir extends Serialzer[Components] with UT {
   }
 }
 // */
+
 
 class Browser(jsons: List[JValue]) {
   def lookupXs(fs: Seq[JObjectFilter]): List[JValue] =

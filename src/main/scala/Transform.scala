@@ -23,6 +23,7 @@ object UnexpectedValueType extends Error {
 }
 
 trait UT {
+  def first[A,B](t: (A,B)): A = t._1
   def second[A,B](t: (A,B)): B = t._2
 
   def mapLeft[A,B,C](f: A => C)(t: (A,B)): (C,B) = fFirst(f)(t)
@@ -167,8 +168,8 @@ object TransformTemplete extends DoAny {
     lookup(incompleteJSON, "__templates") match {
       case None => incompleteJSON
       case Some(JArray(vs)) => (
-	incompleteJSON /: ( vs flatMap {lookup(templates)} map {mkInstance(templates)}) 
-      )((a,b) => a merge b)
+        ( vs flatMap {lookup(templates)} map {mkInstance(templates)} ) :\ incompleteJSON
+      )( _ merge _)
       case _ => throw new Exception("fatal")
     }
   }
@@ -355,7 +356,7 @@ object ImportObject extends DoAny {
 		  } map {
 		    case ImportedObject(i, _, _) => i
 		  }
-		(v /: l)( _ merge _ )}
+		(l :\ v)( _ merge _ )}
 	  } match {
 	    case -\/(e) => Log.error(e.toString); JObject(Nil)
 	    case \/-(r) => r
