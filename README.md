@@ -8,6 +8,7 @@
 といった発想から作成されています    
 
 自分用だったのでいろいろ雑です。領域外チェックとか疎かです     
+[cdda-anything-i-needs](https://github.com/YueKaburagi/cdda-anything-i-needs) で実際に使ってます
 
 
 ## __config.json

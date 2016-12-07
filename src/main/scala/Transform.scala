@@ -15,14 +15,14 @@ import org.json4s.native.Printer.{pretty}
 import java.io.{File, FileWriter}
 
 trait Error
-case class KeyNotFound(key: String) extends Error {
-  override def toString = "KeyNotFound[\""+key+"\"]"
+case class KeyNotFound(key: String, at: JValue) extends Error {
+  override def toString = "KeyNotFound[\""+key+"\"]\n" + pretty(MorePretty prend at)
 }
-object UnexpectedValueType extends Error {
-  override def toString = "UnexpectedValueType"
+case class UnexpectedValueType(at: JValue) extends Error {
+  override def toString = "UnexpectedValueType\n" + pretty(MorePretty prend at)
 }
 case class ExpectedValueType(str: String, actual: JValue) extends Error
-case class FieldNotFound(key: String, at: JValue) extends Error
+
 
 trait UT {
   def first[A,B](t: (A,B)): A = t._1
@@ -73,8 +73,8 @@ trait DoAny extends UT {
     jkey match {
       case JString(key) => 
 	lookupE(jv, key) match {
-	  case -\/(KeyNotFound(k)) => Log.warn("missing field. '"+ k +"'");None
-	  case -\/(UnexpectedValueType) => Log.error("unexpected value "+ compact(render(jv)));None
+	  case -\/(KeyNotFound(k, _)) => Log.warn("missing field. '"+ k +"'");None
+	  case -\/(UnexpectedValueType(_)) => Log.error("unexpected value "+ compact(render(jv)));None
 	  case -\/(err) => throw new Exception("undefined error code "+ err)
 	  case \/-((k,v)) => v.some
 	}
@@ -100,7 +100,7 @@ trait DoAny extends UT {
     }
   def lookupE(jv: JValue, key: String): \/[Error,JField] =
     jv match {
-      case JObject(fs) => optToE(KeyNotFound(key)){fs find {case (k,_) => k == key}}
+      case JObject(fs) => optToE(KeyNotFound(key, jv)){fs find {case (k,_) => k == key}}
       case _ => ExpectedValueType(s"JObject {$key}", jv).left
     }
 }
@@ -240,7 +240,7 @@ object ImportObject extends DoAny {
 	  if (missingKeys isEmpty) {
             JObject ( fs filterNot {case (k,_) => is contains k} ) right
 	  } else {
-	    KeyNotFound(missingKeys mkString ",").left
+	    KeyNotFound(missingKeys mkString ",", JObject(fs)).left
 	  }
 	case x => ExpectedValueType("JObject", x).left
       }
@@ -307,7 +307,7 @@ object ImportObject extends DoAny {
     override def invoke(v1: JValue, v2: JValue): (Error \/ JValue) =
       (v1,v2) match {
 	case (JArray(l), JArray(r)) => JArray(l ++ r).right
-	case _ => UnexpectedValueType.left
+	case _ => UnexpectedValueType(JObject( ("lhs" -> v1) :: ("rhs" -> v2) :: Nil)).left
       }
   }
   case class Box(jv: JValue) extends Star
