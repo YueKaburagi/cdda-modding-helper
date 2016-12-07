@@ -86,7 +86,8 @@ __config.json に `"json_root_dir"` の指定が必要です
             "id_suffix": "__undefined",
         },
         "bind": "obj",
-        "import": "as template"
+        "import": "as template",
+        "ignore": ["batch_time_factors"]
     }],
 ```
 - **"ref"** では参照するオブジェクトを一意に探し出せる、キーと値の1つ以上の組を与えます   
@@ -96,6 +97,7 @@ __config.json に `"json_root_dir"` の指定が必要です
  `"this"` は特殊な用途に使えるよう予約済みとなっています   
 - **"import"** では参照したオブジェクトをテンプレートの様にマージするかどうかを指定します   
  `"as template"` の場合マージし、`"bind only"` の場合はマージしません   
+- **"ignore"** では参照したオブジェクトの特定のフィールドを読み込まないようにします
   
 __import で読み込んだオブジェクトを、その定義中に利用することができます   
 値として `"${...}"` が与えられた場合、その内部を式として評価します   

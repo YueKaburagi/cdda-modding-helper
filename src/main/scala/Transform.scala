@@ -21,6 +21,8 @@ case class KeyNotFound(key: String) extends Error {
 object UnexpectedValueType extends Error {
   override def toString = "UnexpectedValueType"
 }
+case class ExpectedValueType(str: String, actual: JValue) extends Error
+case class FieldNotFound(key: String, at: JValue) extends Error
 
 trait UT {
   def first[A,B](t: (A,B)): A = t._1
@@ -94,12 +96,12 @@ trait DoAny extends UT {
   def lookupE(jv: JValue)(jkey: JValue): \/[Error,JField] =
     jkey match {
       case JString(key) => lookupE(jv, key)
-      case _ => UnexpectedValueType.left
+      case _ => ExpectedValueType("JString", jkey).left
     }
   def lookupE(jv: JValue, key: String): \/[Error,JField] =
     jv match {
       case JObject(fs) => optToE(KeyNotFound(key)){fs find {case (k,_) => k == key}}
-      case _ => UnexpectedValueType.left
+      case _ => ExpectedValueType(s"JObject {$key}", jv).left
     }
 }
 
@@ -212,6 +214,14 @@ object ImportObject extends DoAny {
 
   def mkObject(jv: JValue): (Error \/ ImportedObject) = 
     for {
+      is <- lookup(jv, "ignore") match {
+	case None => List.empty[String].right
+	case Some(JArray(gs)) => gs mapD {
+	  case JString(s) => s.right
+	  case x => ExpectedValueType("JString", x).left
+	}
+	case x => ExpectedValueType("JArray", x).left
+      }
       i <- lookupE(jv, "ref") map second flatMap {
 	case JObject(ref) => mkQuery(ref).right
 	case _ => RefNotFound.left
@@ -224,10 +234,19 @@ object ImportObject extends DoAny {
 	      case _ => MultiRef.left
 	    }
 	  }
+      } flatMap {
+	case JObject(fs) => 
+	  val missingKeys = is.toSet -- {fs map first toSet}
+	  if (missingKeys isEmpty) {
+            JObject ( fs filterNot {case (k,_) => is contains k} ) right
+	  } else {
+	    KeyNotFound(missingKeys mkString ",").left
+	  }
+	case x => ExpectedValueType("JObject", x).left
       }
       r <- lookupE(jv, "import") map second flatMap {
 	case JString(str) => str.right
-	case _ => UnexpectedValueType.left
+	case x => ExpectedValueType("JString", x).left
       }
       b <- lookupE(jv, "bind") map second match {
 	case -\/(_) => r match {
@@ -238,7 +257,7 @@ object ImportObject extends DoAny {
 	case \/-(x) => x match {
 	  case JString("this") => Reserved.left
 	  case JString(s) => s.some.right
-	  case _ => UnexpectedValueType.left
+	  case x => ExpectedValueType("JString", x).left
 	}
       }
     } yield {ImportedObject(i,r,b)}
