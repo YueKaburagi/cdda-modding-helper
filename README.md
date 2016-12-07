@@ -16,11 +16,17 @@
 __config.json はカレントディレクトリに置いてください   
 ```json
 {
-    "json_root_dir": "/cdda/data/json",
-    "po_path": "/path/to/file.po"
+    "default_version": "#6024",
+    "#6024": {
+        "destination": "/path/to/cdda/data/mods",
+	"cdda_json_root": "/path/to/cdda/data/json",
+	"po_path": "/path/to/po_file.po",
+    }
+    "#5934": {
+      ...
 }
 ```
-**"json_root_dir"**は  
+**"cdda_json_root"**は  
 - json変換の 読み込み/import機能  
 - 簡易ブラウザ機能の `find`  
 
@@ -34,8 +40,9 @@ __config.json はカレントディレクトリに置いてください
 
 ## json変換 v1.0.0
 実行時引数で指定されたディレクトリ以下にあるjsonファイルを変換します   
-`cdda-mod-static [baseDir [destDir]]`   
-実行時引数を省略した場合はカレントディレクトリを対象にします   
+`cdda-mod-static <targetDir> [destDir]`    
+`destDir`が省略された場合は、\_\_config.json の`destination`を参照します     
+`destination` も存在しなければ `targetDir/transformed/` に出力します
 
 処理順は   
 template → import → replace    

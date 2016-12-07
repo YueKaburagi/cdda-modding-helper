@@ -3,6 +3,7 @@ package cddamod
 
 import scala.language.postfixOps
 import scalaz.Scalaz._
+import scalaz._
 
 import org.json4s._
 import org.json4s.native.JsonMethods._
@@ -43,12 +44,18 @@ object Log {
  *
  * __config,json
  * {
+ *   "default_version": "#6001",
  *   "#6001": {
  *     "export_to": "/path/to/cdda/data/mods",
  *     "cdda_json_root": "/path/to/cdda/data/json",
  *     "po_file": "path/to/po_file.po"
  *   }
  * }
+ *
+ * 英語modを日本語訳したい？
+ *  1. .pot を出力して .po を経て .mo これを本体同梱の .mo へマージ？
+ *  2. jsonに原文一覧を抽出、それを編集してもらって、原文上書きしたjsonを出力？
+ *  原文一覧の抽出までは共通、pot を作るのはテキストベタ書きでだいじょうぶかな？
  * ${arr -- arr}こういうことしたいんだけど、右辺項どうやって求めよう
 // */
 
@@ -105,39 +112,98 @@ trait Loader {
 
 }
 
-object Main extends Loader {
-
-  def main(args: Array[String]) {
+object Main extends Loader with DoAny {
+  def loadConfig(version: Option[String]) {
     loadOption(new File("__config.json")) map { // このあたりLazyでいいと思う
+      jv =>
+	{version match {
+	  case Some(v) => v.some
+	  case None => lookup(jv, "default_version") flatMap {
+	    case JString(s) => s.some
+	    case _ => None
+	  }
+	}} match {
+	  case None => loadSettings(jv)
+	  case Some(v) => lookupE(jv, v) map second match {
+	    case -\/(e) => Log.error(e.toString)
+	    case \/-(j) => loadSettings(j)
+	  }
+	}
+    }
+  }
+  private[this] def loadSettings(jv: JValue) {
+    jv match {
       case JObject(fs) => fs foreach {
-	case ("json_root_dir", JString(jsonRootDir)) =>
+	case ("cdda_json_root", JString(jsonRootDir)) =>
 	  Prompt.browser = new Browser(recursiveLoad(new File(jsonRootDir))).some
 	  ImportObject.browser = Prompt.browser
 	case ("po_path", JString(poPath)) =>
 	  Prompt.dictionary = DictLoader.load(new File(poPath)).some
+	case ("destination", JString(destPath)) =>
+	  Transform.destDir = new File(destPath)
 	case _ => // do nothing
       }
       case _ => Log.error("format error: \"__confing.json\"")
     }
+  }
 
+  trait Mode
+  object Browse extends Mode
+  object Trans extends Mode
+  private[this] def repf(mode: Mode, args: List[String], target: Option[String]) {
     args match {
-      case Array("-b") =>
-	Prompt.prompt()
-      case Array("-b", jsonDir, poFile) =>
-	Prompt.browser = new Browser(recursiveLoad(new File(jsonDir))).some
-        Prompt.dictionary = DictLoader.load(new File(poFile)).some
-	Prompt.prompt()
-      case Array(baseDir, destDir) =>
-	Transform.baseDir = new File(baseDir)
-	Transform.destDir = new File(destDir)
-	Transform.transform()
-      case Array(baseDir) =>
-	Transform.baseDir = new File(baseDir)
-	Transform.destDir = new File(baseDir, "transformed")
-	Transform.transform()
-      case _ =>
-	Transform.transform()
+      case "-w" :: v :: xs => repf(mode, xs, v.some)
+      case "-b" :: xs => repf(Browse, xs, target)
+      case "--help" :: _ => showHelp()
+      case "-h" :: _ => showHelp()
+      case a :: b :: Nil => mode match {
+	case Browse =>
+	  loadConfig(target)
+	  Prompt.browser = new Browser(recursiveLoad(new File( a ))).some
+          Prompt.dictionary = DictLoader.load(new File( b )).some
+	  Prompt.prompt()
+	case Trans =>
+	  loadConfig(target)
+	  Transform.baseDir = new File( a )
+	  Transform.destDir = new File( b )
+	  Transform.transform()
+	}
+      case a :: Nil => mode match {
+	case Browse =>
+	  loadConfig(target)
+	  Prompt.browser = new Browser(recursiveLoad(new File( a ))).some
+	  Prompt.prompt()
+	case Trans =>
+	  loadConfig(target)
+	  Transform.baseDir = new File( a )
+	  Transform.destDir = new File( Transform.destDir, Transform.baseDir.getName )
+	  Transform.transform()
+	}
+      case Nil => mode match {
+	case Browse =>
+	  loadConfig(target)
+	  Prompt.prompt()
+	case Trans =>
+	  showHelp()
+      }
+      case _ => showHelp()
     }
+  }
+  def showHelp() {
+    val help = "*usage*" ::
+    ": transform" ::
+    "[options] <sourceDirecotry> [destDirecotry]" ::
+    ": browser" ::
+    "-b [options] [jsonRootDirectory [poFile]]" ::
+    "" ::
+    "OPTION" ::
+    "-w <targetVersion>" ::
+    Nil
+    println(help mkString("","\n",""))
+  }
+
+  def main(args: Array[String]) {
+    repf(Trans, args toList, None)
   }
 
 }

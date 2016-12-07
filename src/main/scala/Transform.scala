@@ -117,22 +117,26 @@ object Transform extends Loader with UT {
       pretty(MorePretty.prend(v), new FileWriter(f)).close()
   }
 
+  private def targetList(base: File, dest: File): List[(List[File], File)] =
+    base.listFiles() filter {_ != dest} span (_.isDirectory) match {
+      case (dirs, files) =>
+	lazy val rs: List[(List[File], File)] =
+	  {dirs flatMap {b => targetList(b, new File(dest, b.getName))} toList}
+	files filter {
+	  _.getName.toLowerCase endsWith ".json"
+	} filterNot {
+	  _.getName startsWith "__"
+	} match {
+	  case ls if ls isEmpty => rs
+	  case ls => (ls toList, dest) :: rs
+	}
+    }
   private def in_transform(base: File, dest: File): Unit = {
-    if (! dest.exists) {dest.mkdir()} // 関係ないフォルダもつくっちゃう
-    main_transform(
-      base.listFiles() filter {_ != dest} flatMap {
-	f =>
-	  if (f isDirectory) { 
-	    in_transform(f, new File(dest, f getName))
-	    None
-	  }
-	  else if ( (!(f.getName startsWith "__")) && (f.getName.toLowerCase endsWith ".json" )) {
-	    f.some
-	  } else {
-	    None
-	  }
-      } toList,
-      dest)
+    targetList(base, dest) map {
+      case (files, destdir) =>
+	if (! destdir.exists) {destdir.mkdir()}
+	main_transform(files, destdir)
+    }
   }
   private def main_transform(fs: List[File], dest: File): Unit = {
     fs map { bind(load) } map {
@@ -155,7 +159,7 @@ object Transform extends Loader with UT {
   }
 
   def transform() {
-    in_transform(baseDir, destDir)
+    in_transform(baseDir getCanonicalFile, destDir getCanonicalFile)
   }
 }
 

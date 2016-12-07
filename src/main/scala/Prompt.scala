@@ -52,15 +52,16 @@ object Prompt extends DoAny {
   var dictionary: Option[Dictionary] = None
 
   trait PromptError extends Error
-  object NoDictionary extends PromptError
+  object NoDictionary extends PromptError { override def toString = "NoDictionary" }
   object NoDictionaryOrder extends PromptError
-  object NoBrowser extends PromptError
-  object InvalidQueryFormat extends PromptError
-  def execQuery(input: String): Option[List[(DictionaryElement, JValue)]] =
+  object NoBrowser extends PromptError { override def toString = "NoBrowser" }
+  object InvalidQueryFormat extends PromptError {override def toString = "InvalidQueryFormat" }
+  object NoSuchCommand extends PromptError { override def toString = "NoSuchCommand" }
+  def execQuery(input: String): (Error \/ List[(DictionaryElement, JValue)]) =
     {ws split input toList match {
-      case "lookup" :: xs => {LookupAny +: DisplayPretty +: unl(xs)} some
-      case "find" :: xs => {DisplayPretty +: unl(xs)} some
-      case _ => None
+      case "lookup" :: xs => {LookupAny +: DisplayPretty +: unl(xs)} right
+      case "find" :: xs => {DisplayPretty +: unl(xs)} right
+      case _ => NoSuchCommand.left
     }} flatMap { qs =>
       {fetchDictionaryPages( qs.dfs ) match {
 	case Some(desl) =>
@@ -81,7 +82,7 @@ object Prompt extends DoAny {
 	desl =>
 	  display(qs.drs, desl)
 	desl
-      } toOption }
+      }}
 
 
   def fetchDictionaryPages(dfs: List[DictionaryFilter]): Option[(PromptError \/ List[(DictionaryElement, String)])] =
@@ -227,8 +228,8 @@ object Prompt extends DoAny {
         prompt()
       case any =>
 	execQuery(any) match {
-	  case None =>
-	    println( help mkString ("","\n","") )
+	  case -\/(e) =>
+	    Log.error( e.toString )
 	  case _ => // do nothing
 	}
       prompt()
