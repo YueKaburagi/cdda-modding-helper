@@ -6,6 +6,7 @@
 
 /__config.json
 /__*.json
+/incomplete.json
 
 .cache
 .history
