@@ -7,6 +7,7 @@ import java.io.File
 
 import scala.io.Source
 import scala.collection.mutable
+import scala.io.Codec
 
 
 trait DictionaryElement {
@@ -19,7 +20,7 @@ object Blank extends DictionaryElement {override val str = "()"}
 object DictLoader {
 
   def load(pofile: File): Dictionary = {
-    val src = Source.fromFile(pofile).getLines
+    val src = Source.fromFile(pofile)(Codec.UTF8).getLines
     new Dictionary( pLine(src, Ready, mutable.Map.empty).toMap )
   }
   private[this] def pLine(lines: Iterator[String], mode: Mode,
