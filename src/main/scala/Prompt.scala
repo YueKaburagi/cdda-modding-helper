@@ -212,6 +212,7 @@ object Prompt extends DoAny {
       case pValue(value) :: xs => HasValue(JString(value)) +: unl(xs)
       case str :: xs => Lookup(str) +: unl(xs)
     }
+    // cp932対応が必要になるかも
   }
   val pKeyValue = """([^\s]+)=([^\s]+)""".r
   val pKey = """([^\s]+)=""".r
@@ -219,6 +220,18 @@ object Prompt extends DoAny {
   // ()=?() partial match order??
 
 
+  var consoleEncoding = "UTF-8"
+  def wrappedPrompt() {
+    import scala.Console
+    import java.io.{InputStreamReader, PrintStream}
+    import java.nio.charset.Charset
+
+    Console.withOut(new PrintStream(System.out, false, consoleEncoding)){
+      Console.withIn(new InputStreamReader(System.in, Charset.forName(consoleEncoding))){
+	prompt()
+      }}
+  }
+  
   def prompt() {
     print("> ")
     StdIn readLine match {

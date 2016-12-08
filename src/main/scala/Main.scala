@@ -172,6 +172,10 @@ object Main extends Loader with DoAny {
   def loadConfig(version: Option[String]) {
     loadOption(new File("__config.json")) map { // このあたりLazyでいいと思う
       jv =>
+	lookup(jv, "console_encoding") map {
+	  case JString(s) => Prompt.consoleEncoding = s
+	  case _ => // do nothing
+	}
 	{version match {
 	  case Some(v) => v.some
 	  case None => lookup(jv, "default_version") flatMap {
@@ -203,6 +207,7 @@ object Main extends Loader with DoAny {
     }
   }
 
+
   trait Mode
   object Browse extends Mode
   object Trans extends Mode
@@ -219,7 +224,8 @@ object Main extends Loader with DoAny {
 	  loadConfig(target)
 	  Prompt.browser = new Browser(recursiveLoad(new File( a ))).some
           Prompt.dictionary = DictLoader.load(new File( b )).some
-	  Prompt.prompt()
+	  
+	  Prompt.wrappedPrompt()
 	case Trans =>
 	  loadConfig(target)
 	  Transform.baseDir = new File( a )
@@ -232,7 +238,7 @@ object Main extends Loader with DoAny {
 	case Browse =>
 	  loadConfig(target)
 	  Prompt.browser = new Browser(recursiveLoad(new File( a ))).some
-	  Prompt.prompt()
+	  Prompt.wrappedPrompt()
 	case Trans =>
 	  loadConfig(target)
 	  Transform.baseDir = new File( a )
@@ -245,7 +251,7 @@ object Main extends Loader with DoAny {
       case Nil => mode match {
 	case Browse =>
 	  loadConfig(target)
-	  Prompt.prompt()
+	  Prompt.wrappedPrompt()
 	case Trans =>
 	  showHelp()
 	case Po =>
@@ -267,6 +273,7 @@ object Main extends Loader with DoAny {
   }
 
   def main(args: Array[String]) {
+
     repf(Trans, args toList, None)
   }
 

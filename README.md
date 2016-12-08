@@ -17,29 +17,31 @@ __config.json はカレントディレクトリに置いてください
 ```json
 {
     "default_version": "#6024",
+    "console_encoding": "windows-31j",
     "#6024": {
         "destination": "/path/to/cdda/data/mods",
-	"cdda_json_root": "/path/to/cdda/data/json",
-	"po_path": "/path/to/po_file.po",
+        "cdda_json_root": "/path/to/cdda/data/json",
+        "po_path": "/path/to/po_file.po",
     },
     "#5934": {
       ...
 }
 ```
-**"cdda_json_root"**は  
-- json変換の 読み込み/import機能  
-- 簡易ブラウザ機能の `find`  
-
-を  
-
-**"po_path"**は  
-- 簡易ブラウザ機能の `lookup`  
-
-を  
-それぞれ利用するために必要です  
+- **"console_encoding"** には            
+コンソールの文字エンコードを指定できます        
+Windowsマシンの場合、`"windows-31j"`を指定することになるかと思います          
+指定が無い場合は `"UTF-8"` として実行します     
+- **"cdda_json_root"** には       
+cddaのjsonフォルダの場所を指定します      
+json変換の 読み込み/import機能 や 簡易ブラウザの `find` で利用します            
+- **"po_path"** には      
+任意のpoファイルを指定します    
+簡易ブラウザの `lookup` で必要になります             
 
 "po_path"で指定するpoファイルは `msgunfmt` などを使って予めmoファイルから変換しておいてください   
 moファイルは cdda/lang/ 以下にあると思います   
+
+default 以外の version を参照したい場合は、実行時引数に `-w <version>` を加えてください
 
 ## json変換 v1.0.0
 実行時引数で指定されたディレクトリ以下にあるjsonファイルを変換します   
