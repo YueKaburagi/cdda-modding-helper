@@ -8,7 +8,7 @@ import scalaz._
 import org.json4s._
 import org.json4s.native.JsonMethods._
 
-import java.io.{File, FileFilter}
+import java.io.{File, FileFilter, FileWriter, BufferedWriter}
 
 import scala.io.AnsiColor
 
@@ -58,6 +58,62 @@ object Log {
  *  原文一覧の抽出までは共通、pot を作るのはテキストベタ書きでだいじょうぶかな？
  * ${arr -- arr}こういうことしたいんだけど、右辺項どうやって求めよう
 // */
+
+object TranslationHelper extends Loader {
+  def build(path: File, out: File) {
+    val writer = new BufferedWriter( new FileWriter( out ))
+    recursiveLoad(path) map listupText map {_ toMap} flatMap toPoLikeString foreach {
+      str: String =>
+	writer write str
+        writer write "\n\n"
+    }
+    writer flush
+  }
+
+  private[this] def specializePlural(m: Map[String,String]): (Map[String,String], List[String]) =
+    m get "name_plural" match {
+      case Some(plural) => 
+	m get "name" match {
+	  case Some(name) => 
+	    (m filterKeys {k => "name" != k && "name_plural" != k},
+	    {"msgid \"" +name+ "\"\nmsgid_plural \"" +plural+ "\"\nmsgstr[0] \"\""} :: Nil)
+	  case None => throw new Exception("Missing name filed")
+	}
+      case None =>
+	(m,Nil)
+    }
+
+  def toPoLikeString(m: Map[String,String]): List[String] =
+    specializePlural(m) match {
+      case (mn, l) =>
+	l ++ {mn map {
+	  case (_,v) => "msgid \""+v+"\"\nmsgstr \"\""
+	}}
+    }
+
+  val candidates: Set[String] = Set("name", "name_plural", "description", "msg", "not_ready_msg", "unfold_msg")
+  // 1ファイルでなく、1つのjoに対して適用する
+  def listupText(jv: JValue): List[(String, String)] = {
+    jv match {
+      case JObject(fs) => 
+	fs flatMap {
+	  case (k,v) if candidates contains k => v match {
+	    case JString(s) => (k, s) :: Nil
+	    case JArray(vs) => vs flatMap listupText
+	    case jo@ JObject(_) => listupText(jo)
+	    case _ => Nil
+	  }
+	  case (_,v) => v match {
+	    case JArray(vs) => vs flatMap listupText
+	    case jo@ JObject(_) => listupText(jo)
+	    case _ => Nil
+	  }
+	}
+      case JArray(vs) => vs flatMap listupText
+      case _ => Nil
+    }
+  }
+}
 
 class Browser(jsons: List[JValue]) {
   def lookupXs(fs: Seq[JObjectFilter]): List[JValue] =
@@ -150,10 +206,12 @@ object Main extends Loader with DoAny {
   trait Mode
   object Browse extends Mode
   object Trans extends Mode
+  object Po extends Mode
   private[this] def repf(mode: Mode, args: List[String], target: Option[String]) {
     args match {
       case "-w" :: v :: xs => repf(mode, xs, v.some)
       case "-b" :: xs => repf(Browse, xs, target)
+      case "-p" :: xs => repf(Po, xs, target)
       case "--help" :: _ => showHelp()
       case "-h" :: _ => showHelp()
       case a :: b :: Nil => mode match {
@@ -167,6 +225,8 @@ object Main extends Loader with DoAny {
 	  Transform.baseDir = new File( a )
 	  Transform.destDir = new File( b )
 	  Transform.transform()
+	case Po =>
+	  TranslationHelper.build( new File(a), new File(b) )
 	}
       case a :: Nil => mode match {
 	case Browse =>
@@ -178,6 +238,9 @@ object Main extends Loader with DoAny {
 	  Transform.baseDir = new File( a )
 	  Transform.destDir = new File( Transform.destDir, Transform.baseDir.getName )
 	  Transform.transform()
+	case Po =>
+	  val dir = new File(a)
+	  TranslationHelper.build( dir, new File({dir getName} + ".po"))
 	}
       case Nil => mode match {
 	case Browse =>
@@ -185,19 +248,20 @@ object Main extends Loader with DoAny {
 	  Prompt.prompt()
 	case Trans =>
 	  showHelp()
+	case Po =>
+	  showHelp()
       }
       case _ => showHelp()
     }
   }
   def showHelp() {
     val help = "*usage*" ::
-    ": transform" ::
-    "[options] <sourceDirecotry> [destDirecotry]" ::
-    ": browser" ::
-    "-b [options] [jsonRootDirectory [poFile]]" ::
+    "transform   :> [options] <sourceDirecotry> [destDirecotry]" ::
+    "browser     :> -b [options] [jsonRootDirectory [poFile]]" ::
+    "make po file:> -p <targetModPath> [outFile]" ::
     "" ::
     "OPTION" ::
-    "-w <targetVersion>" ::
+    "    -w <targetVersion>" ::
     Nil
     println(help mkString("","\n",""))
   }

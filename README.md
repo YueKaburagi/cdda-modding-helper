@@ -38,6 +38,10 @@ __config.json はカレントディレクトリに置いてください
 を  
 それぞれ利用するために必要です  
 
+### 付記  
+"po_path"で指定するpoファイルは `msgunfmt` などを使って予めmoファイルから変換しておいてください   
+moファイルは cdda/lang/ 以下にあると思います   
+
 ## json変換 v1.0.0
 実行時引数で指定されたディレクトリ以下にあるjsonファイルを変換します   
 `cdda-mod-static <targetDir> [destDir]`    
@@ -200,7 +204,24 @@ lookup 機能を使う場合は それに加えて "po_path" の指定が
 - `id`   
  見つけたオブジェクトのidの値のみを表示する   
 
-### 付記  
-"po_path"で指定するpoファイルは msgunfmt などを使って予めmoファイルから変換しておいてください   
-moファイルは cdda/lang/ 以下にあると思います   
 
+## 外部mod翻訳補助
+*対象のMod内にある `name` や `description` などをリストアップし、poファイル をつくります*       
+`-p <targetModPath> [outFile]`       
+出力先の指定がない場合はカレントディレクトリに出力されます        
+
+
+この poファイル は完全でないので、msgcat で以下のように指定して繋ぎ合わせる必要があります       
+`msgcat --use-first -o <outFile.po> <master.po> <partial.po>`      
+
+大まかな流れとしては     
+1. cdda同梱の moファイル を `msgunfmt` などで poファイル に変換する       
+  `msgunfmt cataclysm-dda.mo -o master.po`'         
+2. `cdda-modding-helper` を `-p` モードで実行する        
+  `java -jar cdda-modding-helper.jar -p EnglishMod partal.po`          
+3. 出力された poファイル を翻訳する       
+4. cddaの poファイル に、modの poファイル を `msgcat` する         
+  `msgcat --use-first master.po partial.po -o new.po`       
+5. `msgfmt` で繋げた poファイル を moファイル に変換する      
+  `msgfmt new.po -o cataclysm-dda.mo`    
+6. cddaの所定の位置に moファイル を上書きする     
