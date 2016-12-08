@@ -118,7 +118,7 @@ object Transform extends Loader with UT {
   }
 
   private def targetList(base: File, dest: File): List[(List[File], File)] =
-    base.listFiles() filter {_ != dest} span (_.isDirectory) match {
+    base.listFiles() filter {_ != dest} partition (_.isDirectory) match {
       case (dirs, files) =>
 	lazy val rs: List[(List[File], File)] =
 	  {dirs flatMap {b => targetList(b, new File(dest, b.getName))} toList}
@@ -134,7 +134,7 @@ object Transform extends Loader with UT {
   private def in_transform(base: File, dest: File): Unit = {
     targetList(base, dest) map {
       case (files, destdir) =>
-	if (! destdir.exists) {destdir.mkdir()}
+	if (! destdir.exists) {destdir.mkdirs()}
 	main_transform(files, destdir)
     }
   }
