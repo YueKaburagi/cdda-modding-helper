@@ -204,7 +204,7 @@ lookup 機能を使う場合は それに加えて "po_path" の指定が
  見つけたオブジェクトのidの値のみを表示する   
 
 
-## 外部mod翻訳補助
+## 外部mod翻訳補助 v1.5.0
 *対象のMod内にある `name` や `description` などをリストアップし、poファイル をつくります*       
 `cdda-modding-helper -p <targetModPath> [outFile]`       
 出力先の指定がない場合はカレントディレクトリに出力されます        
