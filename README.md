@@ -213,24 +213,25 @@ lookup 機能を使う場合は それに加えて "po_path" の指定が
 この poファイル は完全でないので、msgcat で以下のように指定して繋ぎ合わせる必要があります       
 `msgcat --use-first -o <outFile.po> <master.po> <partial.po>`      
 
-大まかな流れとしては     
-1. cdda同梱の moファイル を `msgunfmt` などで poファイル に変換する       
+大まかな流れとしては  
+   
+\1. cdda同梱の moファイル を `msgunfmt` などで poファイル に変換する       
 ```
 msgunfmt cataclysm-dda.mo -o master.po
 ```            
-2. `cdda-modding-helper` を `-p` モードで実行する        
+\2. `cdda-modding-helper` を `-p` モードで実行する        
 ```
 java -jar cdda-modding-helper.jar -p ModWrittenInEnglish partial.po
 ```          
-3. 出力された poファイル を翻訳する       
-4. cddaの poファイル に、modの poファイル を `msgcat` する         
+\3. 出力された poファイル を翻訳する       
+\4. cddaの poファイル に、modの poファイル を `msgcat` する         
 ```
 msgcat --use-first master.po partial.po -o new.po
 ```       
-5. `msgfmt` で繋げた poファイル を moファイル に変換する      
+\5. `msgfmt` で繋げた poファイル を moファイル に変換する      
 ```
 msgfmt new.po -o cataclysm-dda.mo
 ```    
-6. cddaの所定の位置に moファイル を上書きする     
+\6. cddaの所定の位置に moファイル を上書きする     
 
 といった感じになります      
