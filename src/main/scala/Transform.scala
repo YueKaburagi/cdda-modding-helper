@@ -12,7 +12,9 @@ import org.json4s.JsonDSL._
 import org.json4s.native.JsonMethods._
 import org.json4s.native.Printer.{pretty}
 
-import java.io.{File, FileWriter}
+import java.io.{File, FileOutputStream, OutputStreamWriter}
+import java.nio.charset.StandardCharsets
+
 
 trait Error
 case class KeyNotFound(key: String, at: JValue) extends Error {
@@ -114,7 +116,8 @@ object Transform extends Loader with UT {
 
   def save(x: (File, JValue)) = x match {
     case (f,v) =>
-      pretty(MorePretty.prend(v), new FileWriter(f)).close()
+      pretty(MorePretty.prend(v), 
+	     new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8) ).close()
   }
 
   private def targetList(base: File, dest: File): List[(List[File], File)] =

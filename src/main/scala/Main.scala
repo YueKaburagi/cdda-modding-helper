@@ -9,6 +9,8 @@ import org.json4s._
 import org.json4s.native.JsonMethods._
 
 import java.io.{File, FileFilter, FileWriter, BufferedWriter}
+import java.io.{InputStreamReader, FileInputStream} 
+import java.nio.charset.StandardCharsets
 
 import scala.io.AnsiColor
 
@@ -133,7 +135,7 @@ trait Loader {
 
   def load(jsonfile: File): JValue = 
     try {
-      parse(jsonfile)
+      parse(new InputStreamReader(new FileInputStream(jsonfile), StandardCharsets.UTF_8))
     } catch {
       case e: ParserUtil.ParseException =>
 	Log.error("parsing error on "+ jsonfile)
