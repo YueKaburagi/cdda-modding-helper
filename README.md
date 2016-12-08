@@ -43,7 +43,7 @@ moファイルは cdda/lang/ 以下にあると思います
 
 ## json変換 v1.0.0
 実行時引数で指定されたディレクトリ以下にあるjsonファイルを変換します   
-`cdda-mod-static <targetDir> [destDir]`    
+`cdda-modding-helper <targetDir> [destDir]`    
 `destDir`が省略された場合は、\_\_config.json の`destination`を参照します     
 `destination` も存在しなければ `targetDir/transformed/` に出力します
 
@@ -171,7 +171,7 @@ find 機能を使う場合は __config.json に "json_root_dir" の指定が
 lookup 機能を使う場合は それに加えて "po_path" の指定が     
 それぞれ必要です   
 これらは実行時引数として渡すことも可能です   
-`cdda-mod-static -b [<cdda/data/json/> [<***.po>]]`   
+`cdda-modding-helper -b [<cdda/data/json/> [<***.po>]]`   
 
 ### command / コマンド
 
@@ -206,7 +206,7 @@ lookup 機能を使う場合は それに加えて "po_path" の指定が
 
 ## 外部mod翻訳補助
 *対象のMod内にある `name` や `description` などをリストアップし、poファイル をつくります*       
-`-p <targetModPath> [outFile]`       
+`cdda-modding-helper -p <targetModPath> [outFile]`       
 出力先の指定がない場合はカレントディレクトリに出力されます        
 
 
@@ -215,14 +215,14 @@ lookup 機能を使う場合は それに加えて "po_path" の指定が
 
 大まかな流れとしては     
 1. cdda同梱の moファイル を `msgunfmt` などで poファイル に変換する       
- *`msgunfmt cataclysm-dda.mo -o master.po`*            
+**`msgunfmt cataclysm-dda.mo -o master.po`**            
 2. `cdda-modding-helper` を `-p` モードで実行する        
- *`java -jar cdda-modding-helper.jar -p ModWrittenInEnglish partial.po`*          
+**`java -jar cdda-modding-helper.jar -p ModWrittenInEnglish partial.po`**          
 3. 出力された poファイル を翻訳する       
 4. cddaの poファイル に、modの poファイル を `msgcat` する         
- *`msgcat --use-first master.po partial.po -o new.po`*       
+**`msgcat --use-first master.po partial.po -o new.po`**       
 5. `msgfmt` で繋げた poファイル を moファイル に変換する      
- *`msgfmt new.po -o cataclysm-dda.mo`*    
+**`msgfmt new.po -o cataclysm-dda.mo`**    
 6. cddaの所定の位置に moファイル を上書きする     
 
 といった感じになります      
