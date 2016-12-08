@@ -21,7 +21,7 @@ __config.json はカレントディレクトリに置いてください
         "destination": "/path/to/cdda/data/mods",
 	"cdda_json_root": "/path/to/cdda/data/json",
 	"po_path": "/path/to/po_file.po",
-    }
+    },
     "#5934": {
       ...
 }
@@ -38,7 +38,6 @@ __config.json はカレントディレクトリに置いてください
 を  
 それぞれ利用するために必要です  
 
-### 付記  
 "po_path"で指定するpoファイルは `msgunfmt` などを使って予めmoファイルから変換しておいてください   
 moファイルは cdda/lang/ 以下にあると思います   
 
@@ -216,12 +215,14 @@ lookup 機能を使う場合は それに加えて "po_path" の指定が
 
 大まかな流れとしては     
 1. cdda同梱の moファイル を `msgunfmt` などで poファイル に変換する       
-  `msgunfmt cataclysm-dda.mo -o master.po`'         
+ *`msgunfmt cataclysm-dda.mo -o master.po`*            
 2. `cdda-modding-helper` を `-p` モードで実行する        
-  `java -jar cdda-modding-helper.jar -p EnglishMod partal.po`          
+ *`java -jar cdda-modding-helper.jar -p ModWrittenInEnglish partial.po`*          
 3. 出力された poファイル を翻訳する       
 4. cddaの poファイル に、modの poファイル を `msgcat` する         
-  `msgcat --use-first master.po partial.po -o new.po`       
+ *`msgcat --use-first master.po partial.po -o new.po`*       
 5. `msgfmt` で繋げた poファイル を moファイル に変換する      
-  `msgfmt new.po -o cataclysm-dda.mo`    
+ *`msgfmt new.po -o cataclysm-dda.mo`*    
 6. cddaの所定の位置に moファイル を上書きする     
+
+といった感じになります      
