@@ -88,8 +88,8 @@ __template.json にこのようにある場合、以下のJSONオブジェクト
 
 ### 読み込み/import v1.4.0
 *cdda本体に同梱されている様なjsonオブジェクトを流用します*       
-__config.json に `"json_root_dir"` の指定が必要です   
-以下のようにある場合、ragのレシピをjson_root_dir以下から探して、そのオブジェクト定義で参照できるようにします   
+__config.json に `"cdda_json_root"` の指定が必要です   
+以下のようにある場合、ragのレシピをcdda_json_root以下から探して、そのオブジェクト定義で参照できるようにします   
 ```json
 {
     "__import": [{
@@ -169,7 +169,7 @@ __replace定義でキーに対応する値を配列で与えたときは、若�
 replace や import での一時利用フィールドとして "\_\_" からはじまる文字列をキーに指定するのがオススメです   
 
 ## 簡易ブラウザ v1.2.0
-find 機能を使う場合は __config.json に "json_root_dir" の指定が   
+find 機能を使う場合は __config.json に "cdda_json_root" の指定が   
 lookup 機能を使う場合は それに加えて "po_path" の指定が     
 それぞれ必要です   
 これらは実行時引数として渡すことも可能です   
@@ -178,7 +178,7 @@ lookup 機能を使う場合は それに加えて "po_path" の指定が
 ### command / コマンド
 
 - `find [option|quantifier...]`   
- json_root_dir 以下の全部のjsonファイルにあるオブジェクトから検索します   
+ cdda_json_root 以下の全部のjsonファイルにあるオブジェクトから検索します   
 - `lookup [option|quantifier...] <string> [option|quantifier...]`   
  find の機能に加えて、poファイルを見て逆翻訳した値での検索を行えます   
  正確には「入力文字列を含む訳語に対応した英語を探し、その英語を値に持つオブジェクトを検索する」です   
