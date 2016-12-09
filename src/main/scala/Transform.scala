@@ -60,19 +60,6 @@ trait UTOp[A] {
 
 trait DoAny extends UT {
 
-  def lookup(jv: JValue)(jkey: JValue): Option[JValue] = 
-    jkey match {
-      case JString(key) => 
-	lookupE(jv, key) match {
-	  case -\/(KeyNotFound(k, _)) => Log.warn("missing field. '"+ k +"'");None
-	  case -\/(UnexpectedValueType(_)) => Log.error("unexpected value "+ compact(render(jv)));None
-	  case -\/(err) => throw new Exception("undefined error code "+ err)
-	  case \/-((k,v)) => v.some
-	}
-      case otherwise => 
-	Log.error("unexpected value"+ compact(render(jv)))
-        None
-    }
   def lookup(jv: JValue, key: String): Option[JValue] = 
     jv findField {case (k,_) => k == key} match {
       case None => None
@@ -87,12 +74,12 @@ trait DoAny extends UT {
   def lookupE(jv: JValue)(jkey: JValue): (Error \/ JField) =
     jkey match {
       case JString(key) => lookupE(jv, key)
-      case _ => ExpectedValueType("JString", jkey).left
+      case _ => UnmatchedValueType("\"\"", jkey).left
     }
   def lookupE(jv: JValue, key: String): (Error \/ JField) =
     jv match {
       case JObject(fs) => optToE(KeyNotFound(key, jv)){fs find {case (k,_) => k == key}}
-      case _ => ExpectedValueType(s"JObject {$key}", jv).left
+      case _ => UnmatchedValueType("{\""+key+"\": ?}", jv).left
     }
     
 }
