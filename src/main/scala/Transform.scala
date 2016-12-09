@@ -11,6 +11,7 @@ import org.json4s._
 import org.json4s.JsonDSL._
 import org.json4s.native.JsonMethods._
 import org.json4s.native.Printer.{pretty}
+//import org.json4s.scalaz.JsonScalaz._
 
 import java.io.{File, FileOutputStream, OutputStreamWriter}
 import java.nio.charset.StandardCharsets
@@ -83,16 +84,17 @@ trait DoAny extends UT {
       case Some(r) => r.right
       case None => orElse.left
     }
-  def lookupE(jv: JValue)(jkey: JValue): \/[Error,JField] =
+  def lookupE(jv: JValue)(jkey: JValue): (Error \/ JField) =
     jkey match {
       case JString(key) => lookupE(jv, key)
       case _ => ExpectedValueType("JString", jkey).left
     }
-  def lookupE(jv: JValue, key: String): \/[Error,JField] =
+  def lookupE(jv: JValue, key: String): (Error \/ JField) =
     jv match {
       case JObject(fs) => optToE(KeyNotFound(key, jv)){fs find {case (k,_) => k == key}}
       case _ => ExpectedValueType(s"JObject {$key}", jv).left
     }
+    
 }
 
 
@@ -155,28 +157,49 @@ object Transform extends Loader with UT {
 }
 
 
-
 object TransformTemplete extends DoAny {
 
   def dropTemplates(jv: JValue): JValue =
     jv removeField {case (k,_) => k == "__templates"}
 
-  def mkInstance(templates: JValue)(incompleteJSON: JValue): JValue = {
+  // これ Validation の仕事じゃないかなぁ
+  def mkInstance(templates: JValue)(incompleteJSON: JValue): (Error \/ JValue) = {
     lookup(incompleteJSON, "__templates") match {
-      case None => incompleteJSON
-      case Some(JArray(vs)) => (
+      case None => incompleteJSON right
+      case Some(JArray(vs)) => 
+	vs mapD {
+	  k =>
+	    lookupE(templates)(k) map second flatMap {mkInstance(templates)}
+	} map {ss => (ss :\ incompleteJSON){_ merge _} }
+/*
+	(
         ( vs flatMap {lookup(templates)} map {mkInstance(templates)} ) :\ incompleteJSON
       )( _ merge _)
-      case _ => throw new Exception("fatal")
+// */
+      case x => UnmatchedValueType("[\"\"]", x) left
     }
   }
   def build(templates: JValue)(incompleteJSONs: JValue): JValue = {
     incompleteJSONs match {
       case JArray(js) =>
-	JArray(js map {mkInstance(templates)} map { dropTemplates })
+	JArray(js map {mkInstance(templates)} flatMap {
+	  case -\/(e) => 
+	    Log.error(e.toString)
+	    None
+	  case \/-(r) =>
+	    r some
+	} map { dropTemplates })
       case jv: JObject =>
-	dropTemplates( mkInstance(templates)(jv) )
-      case _ => throw new Exception("unexpected error")
+	mkInstance(templates)(jv) match {
+	  case -\/(e) => 
+	    Log.error(e.toString)
+	    jv
+	  case \/-(r) =>
+	    dropTemplates(r)
+	}
+      case x => 
+	Log.error(UnmatchedValueType("[\"\"] or {}", x).toString)
+	x
     }
   }
 

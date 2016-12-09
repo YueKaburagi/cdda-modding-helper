@@ -4,7 +4,7 @@ package cddamod
 import org.json4s.JValue
 import org.json4s.native.Printer.pretty
 
-trait Error
+sealed trait Error
 case class KeyNotFound(key: String, at: JValue) extends Error {
   override def toString = "KeyNotFound[\""+key+"\"]\n" + pretty(MorePretty prend at)
 }
@@ -12,8 +12,12 @@ case class UnexpectedValueType(at: JValue) extends Error {
   override def toString = "UnexpectedValueType\n" + pretty(MorePretty prend at)
 }
 case class ExpectedValueType(str: String, actual: JValue) extends Error
-
+case class UnmatchedValueType(required: String, actual: JValue) extends Error {
+  override def toString = 
+    "UnexpectedValueType\n require:"+ required + "\n actual:"+ pretty(MorePretty prend actual)
+}
 case class ParseError(failureString: String, atWord: String) extends Error
+
 
 package importerror {
 trait ImportError extends Error
