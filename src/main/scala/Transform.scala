@@ -16,25 +16,13 @@ import java.io.{File, FileOutputStream, OutputStreamWriter}
 import java.nio.charset.StandardCharsets
 
 
-trait Error
-case class KeyNotFound(key: String, at: JValue) extends Error {
-  override def toString = "KeyNotFound[\""+key+"\"]\n" + pretty(MorePretty prend at)
-}
-case class UnexpectedValueType(at: JValue) extends Error {
-  override def toString = "UnexpectedValueType\n" + pretty(MorePretty prend at)
-}
-case class ExpectedValueType(str: String, actual: JValue) extends Error
-
-
 trait UT {
   def first[A,B](t: (A,B)): A = t._1
   def second[A,B](t: (A,B)): B = t._2
 
-  def mapLeft[A,B,C](f: A => C)(t: (A,B)): (C,B) = fFirst(f)(t)
   def fFirst[A,B,C](f: A => C)(t: (A,B)): (C,B) = t match {
     case (a,b) => (f (a), b)
   }
-  def mapRight[A,B,C](f: B => C)(t: (A,B)): (A,C) = fSecond(f)(t)
   def fSecond[A,B,C](f: B => C)(t: (A,B)): (A,C) = t match {
     case (a,b) => (a, f (b))
   }
@@ -150,7 +138,7 @@ object Transform extends Loader with UT {
 	  id _
       }
     } map {
-      mapRight(ImportObject.build)
+      fSecond(ImportObject.build)
     } map {
       loadOption(new File(baseDir, "__replace.json")) match {
 	case Some(replaceRule) =>
@@ -194,22 +182,13 @@ object TransformTemplete extends DoAny {
 
 
   def apply(templates: JValue)(arg: (File, JValue)): (File, JValue) =
-    mapRight(build(templates))(arg)
+    fSecond(build(templates))(arg)
 
 }
 
 object ImportObject extends DoAny {
   var browser: Option[Browser] = None
-
-  trait ImportError extends Error
-  object NoBrowser extends ImportError
-  object RefNotFound extends ImportError
-  object MultiRef extends ImportError
-  object NoBindIdent extends ImportError
-  object Reserved extends ImportError
-  case class FormatError(opt: String) extends ImportError
-  case class NotFoundIdent(ident: String) extends ImportError
-  case class NoSupport(code: String) extends ImportError
+  import importerror._
 
   private[this] def mkQuery(fs: List[JField]): List[JObjectFilter] =
     fs map {
@@ -269,8 +248,6 @@ object ImportObject extends DoAny {
       }
     } yield {ImportedObject(i,r,b)}
   
-  
-  case class ParseError(failureString: String, atWord: String) extends Error
   val uofe = """([^\d\s][^\s\.]*)\.([^\d\s][^\s]*)""".r
   val ws = """\s+""".r
   trait Atom
@@ -417,7 +394,7 @@ object Replace extends DoAny {
     target match {
       case JObject(kvs) =>
 	JObject(
-	  kvs map {mapRight{
+	  kvs map {fSecond{
 	    case js@JString(s) => rule get s match {
 	      case Some(JArray(rs)) => headRightOrList{rs map {lookupE(kvs)}} match {
 		case -\/(es) => Log.warn(s"'$s' replacement failed: "+{es.reverse.mkString(", ")})
@@ -439,7 +416,7 @@ object Replace extends DoAny {
     }
   }
   def apply(rule: JValue)(arg: (File, JValue)): (File, JValue) =
-    mapRight{replace( buildRule(rule) ) }(arg)
+    fSecond{replace( buildRule(rule) ) }(arg)
 
 }
 
@@ -452,7 +429,7 @@ object CutDoubleUnderscoreFields extends DoAny {
       throw new Exception("unexpected error")
   }
   def apply(arg: (File, JValue)): (File, JValue) =
-    mapRight(cutD)(arg)
+    fSecond(cutD)(arg)
 }
 
 object ChangePath extends DoAny {
@@ -461,5 +438,5 @@ object ChangePath extends DoAny {
   }
 
   def apply(destDir: File)(arg: (File, JValue)): (File, JValue) =
-    mapLeft(chPath(destDir))(arg)
+    fFirst(chPath(destDir))(arg)
 }

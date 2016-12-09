@@ -39,20 +39,9 @@ object Log {
  * というかそこだけmergeに失敗する。 (たぶん型が異なるせい)
  * めんどくさいなー
  * 
- * ブラウザ機能にkeydown検出を使いたくなったけど、java nativeでは無理なので、
- * 保留
  *
  * そのjsonオブジェクトがどのfileにあったかも表示したい
  *
- * __config,json
- * {
- *   "default_version": "#6001",
- *   "#6001": {
- *     "export_to": "/path/to/cdda/data/mods",
- *     "cdda_json_root": "/path/to/cdda/data/json",
- *     "po_file": "path/to/po_file.po"
- *   }
- * }
  *
  * 英語modを日本語訳したい？
  *  1. .pot を出力して .po を経て .mo これを本体同梱の .mo へマージ？

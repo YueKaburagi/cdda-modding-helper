@@ -59,6 +59,7 @@ object MorePretty extends UT {
       case (n,v) => text("\""+ParserUtil.quote(n)+"\": ") :: prend(v)
     }
 
+  // for [[[]]] like component
   private def specializeComponent(jv: JValue): (JValue \/ Document) =
     jv match {
       case JArray(vs0) => mapE(vs0) {
@@ -73,6 +74,8 @@ object MorePretty extends UT {
       } map fields map {d => nest(indent, break :: d)} map {d => text("[") :: d :: break :: text("]")}
       case _  => jv.left
     }
+
+  // for terrain row
   private def specializeRows(fld: JField): (JField \/ Document) =
     fld match {
       case ("rows", JArray(vs)) => {text("\"rows\": [") :: 

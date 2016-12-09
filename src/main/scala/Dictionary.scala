@@ -39,7 +39,7 @@ object DictLoader {
 	  lines.next match {
 	    case msgstr(s) => pLine(lines, Pair(id,AsText(s)), m)
 	    case msgstr0(s) => pLine(lines, Pair(id,AsName(s)), m)
-	    case msgplural(_) => pLine(lines, Index(id), m) // 読み捨て
+	    case msgplural(_) => pLine(lines, Index(id), m) // 日本語じゃ必要ないので読み捨て
 	    case _ => pLine(lines, Ready, m) // たぶん単語じゃなくて文章
 	  }
 	} else { Log.error("invalid po file"); m }

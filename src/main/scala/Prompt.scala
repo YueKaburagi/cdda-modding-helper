@@ -51,12 +51,8 @@ object Prompt extends DoAny {
   var browser: Option[Browser] = None
   var dictionary: Option[Dictionary] = None
 
-  trait PromptError extends Error
-  object NoDictionary extends PromptError { override def toString = "NoDictionary" }
-  object NoDictionaryOrder extends PromptError
-  object NoBrowser extends PromptError { override def toString = "NoBrowser" }
-  object InvalidQueryFormat extends PromptError {override def toString = "InvalidQueryFormat" }
-  object NoSuchCommand extends PromptError { override def toString = "NoSuchCommand" }
+  import prompterror._
+
   def execQuery(input: String): (Error \/ List[(DictionaryElement, JValue)]) =
     {ws split input toList match {
       case "lookup" :: xs => {LookupAny +: DisplayPretty +: unl(xs)} right
@@ -212,7 +208,6 @@ object Prompt extends DoAny {
       case pValue(value) :: xs => HasValue(JString(value)) +: unl(xs)
       case str :: xs => Lookup(str) +: unl(xs)
     }
-    // cp932対応が必要になるかも
   }
   val pKeyValue = """([^\s]+)=([^\s]+)""".r
   val pKey = """([^\s]+)=""".r
