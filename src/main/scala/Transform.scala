@@ -171,11 +171,6 @@ object TransformTemplete extends DoAny {
 	  k =>
 	    lookupE(templates)(k) map second flatMap {mkInstance(templates)}
 	} map {ss => (ss :\ incompleteJSON){_ merge _} }
-/*
-	(
-        ( vs flatMap {lookup(templates)} map {mkInstance(templates)} ) :\ incompleteJSON
-      )( _ merge _)
-// */
       case x => UnmatchedValueType("[\"\"]", x) left
     }
   }
