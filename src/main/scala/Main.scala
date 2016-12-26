@@ -82,7 +82,13 @@ object TranslationHelper extends Loader {
 	}}
     }
 
-  val candidates: Set[String] = Set("name", "name_plural", "description", "msg", "not_ready_msg", "unfold_msg", "dynamic_line", "yes", "no", "responses", "text")
+  val candidates: Set[String] = Set("name", "name_plural", "description",
+				    // a-able item msg
+				    "msg", "not_ready_msg", "unfold_msg", 
+				    // npc talk
+				    "dynamic_line", "responses", 
+				    "yes", "no", "text", "npc_male", "npc_female", "u_male", "u_female"
+				  )
   // 1ファイルでなく、1つのjoに対して適用する
   def listupText(jv: JValue): List[(String, String)] = {
     jv match {
