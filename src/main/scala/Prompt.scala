@@ -51,14 +51,10 @@ case class ReturnValue(key: String) extends ResultTransform {
 
 class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None) extends DoAny with Loader {
   val browser: Option[Browser] =
-    _browser map {new File(_)} orElse Configuration.cddaPath map {
-      f => new Browser(recursiveLoad(f))
-    }
+    _browser map {new File(_)} orElse Configuration.cddaPath map BrowserLoader.loadBrowser
+
   val dictionary: Option[Dictionary] =
-    _dictionary map {new File(_)} orElse Configuration.poPath map {
-      f => DictLoader load f
-    }
-  // Browser と Dictionary にもってく？
+    _dictionary map {new File(_)} orElse Configuration.poPath map DictLoader.load
 
   import prompterror._
 

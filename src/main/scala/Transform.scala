@@ -120,11 +120,10 @@ object TransformTemplete extends DoAny {
 
 }
 
-class ImportObject(_browser: Option[String] = None) extends DoAny with Loader {
+class ImportObject(_browser: Option[String] = None) extends DoAny {
   val browser: Option[Browser] =
-    _browser map {new File(_)} orElse Configuration.poPath map {
-      f => new Browser(recursiveLoad(f))
-    }
+    _browser map {new File(_)} orElse Configuration.poPath map BrowserLoader.loadBrowser
+
   import importerror._
 
   private[this] def mkQuery(fs: List[JField]): List[JObjectFilter] =
