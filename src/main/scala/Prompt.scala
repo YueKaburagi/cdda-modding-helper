@@ -9,6 +9,8 @@ import org.json4s._
 import org.json4s.native.JsonMethods._
 import org.json4s.native.Printer.{pretty}
 
+import java.io.File
+
 import scala.io.StdIn
 
 trait Query
@@ -29,7 +31,7 @@ case class HasKey(str: String) extends JObjectFilter {
 }
 case class HasField(key: String, value: JValue) extends JObjectFilter {
   override def apply(fs: List[JField]) =
-    fs exists {case (k,v) => k == key && v == value} //contains JField(key,value)
+    fs exists {case (k,v) => k == key && v == value}
 }
 case class HasValue(value: JValue) extends JObjectFilter {
   override def apply(fs: List[JField]) =
@@ -47,9 +49,16 @@ case class ReturnValue(key: String) extends ResultTransform {
     jv findField {case (k,_) => k == key} map {case (_,v) => v}
 }
 
-object Prompt extends DoAny {
-  var browser: Option[Browser] = None
-  var dictionary: Option[Dictionary] = None
+class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None) extends DoAny with Loader {
+  val browser: Option[Browser] =
+    _browser map {new File(_)} orElse Configuration.cddaPath map {
+      f => new Browser(recursiveLoad(f))
+    }
+  val dictionary: Option[Dictionary] =
+    _dictionary map {new File(_)} orElse Configuration.poPath map {
+      f => DictLoader load f
+    }
+  // Browser と Dictionary にもってく？
 
   import prompterror._
 
@@ -215,7 +224,7 @@ object Prompt extends DoAny {
   // ()=?() partial match order??
 
 
-  var consoleEncoding = "UTF-8"
+  def consoleEncoding = Configuration.consoleEncoding
   def wrappedPrompt() {
     import scala.Console
     import java.io.{InputStreamReader, PrintStream}

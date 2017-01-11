@@ -8,7 +8,7 @@ import scalaz._
 import org.json4s._
 import org.json4s.native.JsonMethods._
 
-import java.io.{File, FileFilter, FileWriter, BufferedWriter}
+import java.io.{File, FileFilter}
 import java.io.{InputStreamReader, FileInputStream} 
 import java.nio.charset.StandardCharsets
 
@@ -43,74 +43,8 @@ object Log {
  * そのjsonオブジェクトがどのfileにあったかも表示したい
  *
  *
- * 英語modを日本語訳したい？
- *  1. .pot を出力して .po を経て .mo これを本体同梱の .mo へマージ？
- *  2. jsonに原文一覧を抽出、それを編集してもらって、原文上書きしたjsonを出力？
- *  原文一覧の抽出までは共通、pot を作るのはテキストベタ書きでだいじょうぶかな？
  * ${arr -- arr}こういうことしたいんだけど、右辺項どうやって求めよう
 // */
-
-object TranslationHelper extends Loader {
-  def build(path: File, out: File) {
-    val writer = new BufferedWriter( new FileWriter( out ))
-    recursiveLoad(path) map listupText map {_ toMap} flatMap toPoLikeString foreach {
-      str: String =>
-	writer write str
-        writer write "\n\n"
-    }
-    writer flush
-  }
-
-  private[this] def specializePlural(m: Map[String,String]): (Map[String,String], List[String]) =
-    m get "name_plural" match {
-      case Some(plural) => 
-	m get "name" match {
-	  case Some(name) => 
-	    (m filterKeys {k => "name" != k && "name_plural" != k},
-	    {"msgid \"" +name+ "\"\nmsgid_plural \"" +plural+ "\"\nmsgstr[0] \"\""} :: Nil)
-	  case None => throw new Exception("Missing name filed")
-	}
-      case None =>
-	(m,Nil)
-    }
-
-  def toPoLikeString(m: Map[String,String]): List[String] =
-    specializePlural(m) match {
-      case (mn, l) =>
-	l ++ {mn map {
-	  case (_,v) => "msgid \""+v+"\"\nmsgstr \"\""
-	}}
-    }
-
-  val candidates: Set[String] = Set("name", "name_plural", "description",
-				    // a-able item msg
-				    "msg", "not_ready_msg", "unfold_msg", 
-				    // npc talk
-				    "dynamic_line", "responses", 
-				    "yes", "no", "text", "npc_male", "npc_female", "u_male", "u_female"
-				  )
-  // 1ファイルでなく、1つのjoに対して適用する
-  def listupText(jv: JValue): List[(String, String)] = {
-    jv match {
-      case JObject(fs) => 
-	fs flatMap {
-	  case (k,v) if candidates contains k => v match {
-	    case JString(s) => (k, s) :: Nil
-	    case JArray(vs) => vs flatMap listupText
-	    case jo@ JObject(_) => listupText(jo)
-	    case _ => Nil
-	  }
-	  case (_,v) => v match {
-	    case JArray(vs) => vs flatMap listupText
-	    case jo@ JObject(_) => listupText(jo)
-	    case _ => Nil
-	  }
-	}
-      case JArray(vs) => vs flatMap listupText
-      case _ => Nil
-    }
-  }
-}
 
 class Browser(jsons: List[JValue]) {
   def lookupXs(fs: Seq[JObjectFilter]): List[JValue] =
@@ -152,9 +86,20 @@ trait Loader {
 	if (f.isDirectory) listFileRcursive(f) else List(f)
     } flatten
 
+  def couple[A,B](f: A => B)(a: A): (A,B) =
+    (a, f (a))
 
   def recursiveLoad(dir: File): List[JValue] = 
-    listFileRcursive(dir) map (load _) flatMap unscribe 
+    listFileRcursive(dir) map (load _) flatMap unscribe
+
+  def listAllJValuesWithFile(dir: File): List[(JValue, File)] =
+    listFileRcursive(dir) map {couple(load)} flatMap hezy map {_.swap}
+
+  def hezy(fj: (File, JValue)): List[(File, JValue)] =
+    fj match {
+      case (f, JArray(vs)) => vs map {(f, _)}
+      case _ => List(fj)
+    }
 
   def unscribe(jv: JValue): List[JValue] = {
     jv match {
@@ -166,43 +111,6 @@ trait Loader {
 }
 
 object Main extends Loader with DoAny {
-  def loadConfig(version: Option[String]) {
-    loadOption(new File("__config.json")) map { // このあたりLazyでいいと思う
-      jv =>
-	lookup(jv, "console_encoding") map {
-	  case JString(s) => Prompt.consoleEncoding = s
-	  case _ => // do nothing
-	}
-	{version match {
-	  case Some(v) => v.some
-	  case None => lookup(jv, "default_version") flatMap {
-	    case JString(s) => s.some
-	    case _ => None
-	  }
-	}} match {
-	  case None => loadSettings(jv)
-	  case Some(v) => lookupE(jv, v) map second match {
-	    case -\/(e) => Log.error(e.toString)
-	    case \/-(j) => loadSettings(j)
-	  }
-	}
-    }
-  }
-  private[this] def loadSettings(jv: JValue) {
-    jv match {
-      case JObject(fs) => fs foreach {
-	case ("cdda_json_root", JString(jsonRootDir)) =>
-	  Prompt.browser = new Browser(recursiveLoad(new File(jsonRootDir))).some
-	  ImportObject.browser = Prompt.browser
-	case ("po_path", JString(poPath)) =>
-	  Prompt.dictionary = DictLoader.load(new File(poPath)).some
-	case ("destination", JString(destPath)) =>
-	  Transform.destDir = new File(destPath)
-	case _ => // do nothing
-      }
-      case _ => Log.error("format error: \"__confing.json\"")
-    }
-  }
 
 
   trait Mode
@@ -216,41 +124,39 @@ object Main extends Loader with DoAny {
       case "-p" :: xs => repf(Po, xs, target)
       case "--help" :: _ => showHelp()
       case "-h" :: _ => showHelp()
-      case a :: b :: Nil => mode match {
-	case Browse =>
-	  loadConfig(target)
-	  Prompt.browser = new Browser(recursiveLoad(new File( a ))).some
-          Prompt.dictionary = DictLoader.load(new File( b )).some
-	  
-	  Prompt.wrappedPrompt()
-	case Trans =>
-	  loadConfig(target)
-	  Transform.baseDir = new File( a )
-	  Transform.destDir = new File( b )
-	  Transform.transform()
-	case Po =>
-	  TranslationHelper.build( new File(a), new File(b) )
+      case a :: b :: Nil =>
+	Configuration.load(target)
+        mode match {
+	  case Browse =>
+            new Prompt(a.some, b.some).wrappedPrompt()
+	  case Trans =>
+            new Transform(a, b.some).transform()
+	  case Po =>
+	    TranslationHelper.build( new File(a), new File(b) )
 	}
-      case a :: Nil => mode match {
-	case Browse =>
-	  loadConfig(target)
-	  Prompt.browser = new Browser(recursiveLoad(new File( a ))).some
-	  Prompt.wrappedPrompt()
-	case Trans =>
-	  loadConfig(target)
-	  Transform.baseDir = new File( a )
-	  Transform.destDir = new File( Transform.destDir, Transform.baseDir.getName )
-	  Transform.transform()
-	case Po =>
-	  val dir = new File(a)
-	  TranslationHelper.build( dir, new File({dir getName} + ".po"))
+      case a :: Nil =>
+        Configuration.load(target)
+        mode match {
+	  case Browse =>
+            new Prompt(a.some).wrappedPrompt()
+	  case Trans =>
+            new Transform(a).transform()
+	  case Po =>
+	    val dir = new File(a)
+	    TranslationHelper.build( dir, new File({dir getName} + ".po"))
 	}
-      case Nil => mode match {
-	case Browse =>
-	  loadConfig(target)
-	  Prompt.wrappedPrompt()
-	case Trans =>
-	  showHelp()
+      case Nil =>
+        Configuration.load(target)
+        mode match {
+	  case Browse =>
+	    new Prompt().wrappedPrompt()
+	  case Trans =>
+            Configuration.source match {
+              case Some(a) =>
+                new Transform(a).transform()
+              case None =>
+                showHelp()
+            }
 	case Po =>
 	  showHelp()
       }
@@ -270,7 +176,6 @@ object Main extends Loader with DoAny {
   }
 
   def main(args: Array[String]) {
-
     repf(Trans, args toList, None)
   }
 

@@ -2,8 +2,6 @@
 package cddamod
 
 import scala.language.postfixOps
-import scala.language.higherKinds
-import scala.language.implicitConversions
 import scalaz._
 import scalaz.Scalaz._
 
@@ -17,79 +15,10 @@ import java.io.{File, FileOutputStream, OutputStreamWriter}
 import java.nio.charset.StandardCharsets
 
 
-trait UT {
-  def first[A,B](t: (A,B)): A = t._1
-  def second[A,B](t: (A,B)): B = t._2
-
-  def fFirst[A,B,C](f: A => C)(t: (A,B)): (C,B) = t match {
-    case (a,b) => (f (a), b)
-  }
-  def fSecond[A,B,C](f: B => C)(t: (A,B)): (A,C) = t match {
-    case (a,b) => (a, f (b))
-  }
-  def fSecondM[A,B,C,F[_]: Functor](f: B => F[C])(t: (A,B)): F[(A,C)] = t match {
-    case (a,b) => f(b) map {(a,_)}
-  }
-  def fSecondE[A,B,C,E](f: B => E \/ C)(t: (A,B)): (E \/ (A,C)) = t match {
-    case (a,b) => f(b) map {(a,_)}
-  }
-  def mapE[A,B,E](ts: List[A])(f: A => E \/ B): (E \/ List[B]) = 
-    ts match {
-      case Nil => List.empty.right
-      case x :: xs => f(x) match {
-	case l@ -\/(_) => l
-	case \/-(r) => mapE(xs)(f) map {r :: _}
-      }
-    } // 千切れる
-
-  def id[A](a: A): A = a
-
-  private[this] def itself = this
-  implicit def toUTOp[A](ls: List[A]): UTOp[A] = new UTOp[A] {
-    def tool = itself
-    def self = ls
-  } 
-}
-
-trait UTOp[A] {
-  protected[this] def tool: UT
-  protected[this] def self: List[A]
-  def mapD[B,E](f: A => E \/ B): (E \/ List[B]) =
-    tool.mapE(self)(f)
-}
-
-trait DoAny extends UT {
-
-  def lookup(jv: JValue, key: String): Option[JValue] = 
-    jv findField {case (k,_) => k == key} match {
-      case None => None
-      case Some((k,v)) => v.some
-    }
-
-  def optToE[L,R](orElse: L)(o: Option[R]): \/[L,R] =
-    o match {
-      case Some(r) => r.right
-      case None => orElse.left
-    }
-  def lookupE(jv: JValue)(jkey: JValue): (Error \/ JField) =
-    jkey match {
-      case JString(key) => lookupE(jv, key)
-      case _ => UnmatchedValueType("\"\"", jkey).left
-    }
-  def lookupE(jv: JValue, key: String): (Error \/ JField) =
-    jv match {
-      case JObject(fs) => optToE(KeyNotFound(key, jv)){fs find {case (k,_) => k == key}}
-      case _ => UnmatchedValueType("{\""+key+"\": ?}", jv).left
-    }
-    
-}
-
-
-object Transform extends Loader with UT {
-  var baseDir = new File("./")
-  var destDir = new File(baseDir, "transformed")
-
-  def bind[A,B](f: A => B)(a: A): (A,B) = (a,f (a))
+class Transform(_source: String, _dest: Option[String] = None) extends Loader with UT {
+  val srcDir = new File(_source)
+  val destDir =
+    new File(_dest getOrElse Configuration.destination, srcDir.getName)
 
   def save(x: (File, JValue)) = x match {
     case (f,v) =>
@@ -119,17 +48,17 @@ object Transform extends Loader with UT {
     }
   }
   private def main_transform(fs: List[File], dest: File): Unit = {
-    fs map { bind(load) } map {
-      loadOption(new File(baseDir, "__template.json")) match {
+    fs map { couple(load) } map {
+      loadOption(new File(srcDir, "__template.json")) match {
 	case Some(templates) => 
 	  TransformTemplete(templates) _
 	case None =>
 	  id _
       }
     } map {
-      fSecond(ImportObject.build)
+      fSecond(new ImportObject().build)
     } map {
-      loadOption(new File(baseDir, "__replace.json")) match {
+      loadOption(new File(srcDir, "__replace.json")) match {
 	case Some(replaceRule) =>
 	  Replace(replaceRule) _
 	case None =>
@@ -139,7 +68,7 @@ object Transform extends Loader with UT {
   }
 
   def transform() {
-    in_transform(baseDir getCanonicalFile, destDir getCanonicalFile)
+    in_transform(srcDir getCanonicalFile, destDir getCanonicalFile)
   }
 }
 
@@ -151,7 +80,7 @@ object TransformTemplete extends DoAny {
 
   // これ Validation の仕事じゃないかなぁ
   def mkInstance(templates: JValue)(incompleteJSON: JValue): (Error \/ JValue) = {
-    lookup(incompleteJSON, "__templates") match {
+    incompleteJSON lookup "__templates" match {
       case None => incompleteJSON right
       case Some(JArray(vs)) => 
 	vs mapD {
@@ -191,8 +120,11 @@ object TransformTemplete extends DoAny {
 
 }
 
-object ImportObject extends DoAny {
-  var browser: Option[Browser] = None
+class ImportObject(_browser: Option[String] = None) extends DoAny with Loader {
+  val browser: Option[Browser] =
+    _browser map {new File(_)} orElse Configuration.poPath map {
+      f => new Browser(recursiveLoad(f))
+    }
   import importerror._
 
   private[this] def mkQuery(fs: List[JField]): List[JObjectFilter] =
@@ -205,7 +137,7 @@ object ImportObject extends DoAny {
 
   def mkObject(jv: JValue): (Error \/ ImportedObject) = 
     for {
-      is <- lookup(jv, "ignore") match {
+      is <- jv lookup "ignore" match {
 	case None => List.empty[String].right
 	case Some(JArray(gs)) => gs mapD {
 	  case JString(s) => s.right
@@ -213,7 +145,7 @@ object ImportObject extends DoAny {
 	}
 	case x => ExpectedValueType("JArray", x).left
       }
-      i <- lookupE(jv, "ref") map second flatMap {
+      i <- jv lookupE "ref" flatMap {
 	case JObject(ref) => mkQuery(ref).right
 	case _ => RefNotFound.left
       } flatMap {
@@ -235,11 +167,11 @@ object ImportObject extends DoAny {
 	  }
 	case x => ExpectedValueType("JObject", x).left
       }
-      r <- lookupE(jv, "import") map second flatMap {
+      r <- jv lookupE "import" flatMap {
 	case JString(str) => str.right
 	case x => ExpectedValueType("JString", x).left
       }
-      b <- lookupE(jv, "bind") map second match {
+      b <- jv lookupE "bind" match {
 	case -\/(_) => r match {
 	  case "as template" => None.right
 	  case "bind only" => NoBindIdent.left
@@ -333,9 +265,9 @@ object ImportObject extends DoAny {
   private[this] def unstar(self: JValue, ios: List[ImportedObject])(s: Star): (Error \/ JValue) = {
     s match {
       case Box(jv) => jv.right
-      case This(r) => lookupE(self, r) map second
+      case This(r) => self lookupE r
       case Ref(a,b) => optToE(NotFoundIdent(a)){ ios find {_.ident contains a}} flatMap {
-	case ImportedObject(jv, _, _) => lookupE(jv, b) map second
+	case ImportedObject(jv, _, _) => jv lookupE b
       }
       case _ => throw new Exception("unexpected error")
     }
@@ -344,7 +276,7 @@ object ImportObject extends DoAny {
   def build(jv: JValue): JValue = {
     jv match {
       case jo@ JObject(fs) => 
-	{lookup(jo, "__import") match {
+	{jo lookup "__import" match {
 	  case None => None
 	  case Some(JArray(vs)) => vs mapD mkObject some
 	  case _ => FormatError("__import").left.some
