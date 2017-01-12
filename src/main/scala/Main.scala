@@ -151,7 +151,7 @@ object Main extends Loader with DoAny {
   def showHelp() {
     val help = "*usage*" ::
     "transform   :> [options] <sourceDirecotry> [destDirecotry]" ::
-    "browser     :> -b [options] [jsonRootDirectory [poFile]]" ::
+    "browser     :> -b [options] [cddaRootDirectory [poFile]]" ::
     "make po file:> -p <targetModPath> [outFile]" ::
     "" ::
     "OPTION" ::
