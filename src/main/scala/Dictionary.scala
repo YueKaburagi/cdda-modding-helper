@@ -3,6 +3,8 @@ package cddamod
 
 import scala.language.postfixOps
 
+import org.json4s._
+
 import java.io.File
 
 import scala.io.Source
@@ -15,6 +17,7 @@ trait DictionaryElement {
 }
 case class AsText(override val str: String) extends DictionaryElement
 case class AsName(override val str: String) extends DictionaryElement
+case class AsString(override val str: String) extends DictionaryElement
 object Blank extends DictionaryElement {override val str = "()"}
 
 object DictLoader {
@@ -37,16 +40,17 @@ object DictLoader {
       case Index(id) =>
 	if (lines.hasNext) {
 	  lines.next match {
-	    case msgstr(s) => pLine(lines, Pair(id,AsText(s)), m)
+	    case msgstr(s) => pLine(lines, Pair(id,AsString(s)), m)
 	    case msgstr0(s) => pLine(lines, Pair(id,AsName(s)), m)
 	    case msgplural(_) => pLine(lines, Index(id), m) // 日本語じゃ必要ないので読み捨て
-	    case _ => pLine(lines, Ready, m) // たぶん単語じゃなくて文章
+            case stringline(s) => pLine(lines, Index(id + s), m)
+	    case _ => pLine(lines, Ready, m)
 	  }
 	} else { Log.error("invalid po file"); m }
       case Pair(id,elem) =>
 	if (lines.hasNext) {
 	  lines.next match {
-	    case stringline(_) => pLine(lines, Ready, m) // こっちも単語じゃなくて文章
+	    case stringline(s) => pLine(lines, Pair(id,AsText(elem.str + s)), m)
 	    case _ => pLine(lines, Ready, upsert(m,id,elem))
 	  }
 	} else { upsert(m,id,elem) }
@@ -81,5 +85,23 @@ class Dictionary(src: Map[DictionaryElement, List[String]]) {
       case (AsName(k),v) => k contains str
       case _ => false
     } toList} flatMap {case (k,vs) => vs map {(k,_)}}
+
+  def rfind(str: String): Option[String] =
+    src.filter{case (k,v) => v contains str}.keys.map{_.str}.headOption
+
+  def translate(jv: JValue): JValue =
+    jv match {
+      case JObject(fs) => JObject( fs map {
+        case kv@(k,v) =>
+          if (Configuration translationTargets k) {
+            (k, v match {
+              case JString(s) => JString(this rfind s getOrElse s)
+              case jo@JObject(_) => translate(jo)
+              case x => x
+            })
+          } else { kv }
+      })
+      case x => x
+    }
 }
 

@@ -40,110 +40,113 @@ case class HasValue(value: JValue) extends JObjectFilter {
 trait DisplayRule extends Query
 object DisplayPretty extends DisplayRule
 object DisplayCompact extends DisplayRule
+object DisplayTranslated extends DisplayRule
+object DisplayFileName extends DisplayRule
 case class DisplayUpTo(upto: Int) extends DisplayRule
 trait ResultTransform extends Query {
-  def apply(jv: JValue): Option[JValue]
+  def apply(ji: JInfo): Option[JInfo]
 }
 case class ReturnValue(key: String) extends ResultTransform {
-  override def apply(jv: JValue) =
-    jv findField {case (k,_) => k == key} map {case (_,v) => v}
+  override def apply(ji: JInfo) =
+    ji.jv findField {case (k,_) => k == key} map {case (_,v) => JInfo(v, ji.file)}
 }
+
+
 
 class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None) extends DoAny with Loader {
   val browser: Option[Browser] =
-    _browser map {new File(_)} orElse Configuration.cddaPath map BrowserLoader.loadBrowser
-
+    _browser map {new File(_)} orElse Configuration.cddaRoot map BrowserLoader.loadBrowser
   val dictionary: Option[Dictionary] =
     _dictionary map {new File(_)} orElse Configuration.poPath map DictLoader.load
 
   import prompterror._
 
-  def execQuery(input: String): (Error \/ List[(DictionaryElement, JValue)]) =
-    {ws split input toList match {
-      case "lookup" :: xs => {LookupAny +: DisplayPretty +: unl(xs)} right
-      case "find" :: xs => {DisplayPretty +: unl(xs)} right
-      case _ => NoSuchCommand.left
-    }} flatMap { qs =>
-      {fetchDictionaryPages( qs.dfs ) match {
-	case Some(desl) =>
-	  desl flatMap {
-	    l => 
-	      val ofs = qs.ofs
-	    mapE( l map {fSecond{s: String => HasValue(JString(s)) :: ofs}} ){
-	      fSecondE{search(_)}}
-	  } map {
-	    l => 
-	      l map {case (e,jvs) => jvs map {(e,_)}} flatten
-	  }
-	case None => search(qs.ofs) map {_ map {(Blank,_)}}
-      }} map {
-	desl => 
-	  desl map {fSecondM(filtered( qs.rts ))} flatten
-      } map {
-	desl =>
-	  display(qs.drs, desl)
-	desl
-      }}
+  def parseQueryString(input: String): (Error \/ Queries) =
+    ws split input toList match {
+        case "lookup" :: xs => {LookupAny +: DisplayPretty +: unl(xs)} right
+        case "find" :: xs => {DisplayPretty +: unl(xs)} right
+        case _ => NoSuchCommand.left
+      }
 
+  def execQuery(input: String): (Error \/ List[JInfo]) =
+    for {
+      qs <- parseQueryString(input)
+      ofss <- getOfss(qs)
+      jis <- toJis(qs, ofss)
+      d <- display( qs.drs )( jis )
+    } yield { d }
 
-  def fetchDictionaryPages(dfs: List[DictionaryFilter]): Option[(PromptError \/ List[(DictionaryElement, String)])] =
-    if (dfs isEmpty) {
-      None
+  def getOfss(qs: Queries): (PromptError \/ List[List[JObjectFilter]]) =
+    if ( qs.dfs isEmpty ) {
+      List( qs.ofs ).right // (Blank, qs.ofs)
     } else {
-      {dictionary match {
-	case None => NoDictionary.left
-	case Some(d) =>
-	  val orders = dfs flatMap {
-	    case Lookup(str) => str.some
-	    case _ => None
-	  }
-	if (orders nonEmpty) {
+      fetchPages( qs.dfs ) map {
+        _ map {
+          case (de, str) =>
+            HasValue(JString(str)) :: qs.ofs // (de, HasValue() :: qs.ofs)
+        }
+      }
+    }
+  def toJis(qs: Queries, ofss: List[List[JObjectFilter]]): (Error \/ List[JInfo]) =
+    ofss mapE search map {_ flatMap {_ flatMap {filtered( qs.rts )}}}
+
+  def fetchPages(dfs: List[DictionaryFilter]): (PromptError \/ List[(DictionaryElement, String)]) =
+    dictionary match {
+      case None => NoDictionary.left
+      case Some(d) =>
+        val orders = dfs flatMap {
+	  case Lookup(str) => str.some
+	  case _ => None
+        }
+        if (orders nonEmpty) {
 	  if (dfs contains LookupAny) { d lookup (orders.head) right }
 	  else if (dfs contains LookupByName) { d nameLookup (orders.head) right }
 	  else { InvalidQueryFormat.left }
-	} else NoDictionaryOrder.left
-      }} some
+        } else NoDictionaryOrder.left
     }
-  def search(ofs: List[JObjectFilter]): (PromptError \/ List[JValue]) =
+
+  def search(ofs: List[JObjectFilter]): (PromptError \/ Set[JInfo]) =
     browser match {
       case None => NoBrowser.left
-      case Some(b) => b lookupXs ofs right
+      case Some(b) => b lookupXsf ofs right
     }
-  def filtered(rts: List[ResultTransform])(jv: JValue): Option[JValue] =
+  def filtered(rts: List[ResultTransform])(ji: JInfo): Option[JInfo] =
     if (rts isEmpty) {
-      jv.some
+      ji.some
     } else {
-      rts flatMap {_.apply(jv)} headOption
+      rts flatMap {_.apply(ji)} headOption
     }
-    // 複数適用ってどうする？
+    // 複数適用ってどうする？ 今は特定のfieldを抽出してるだけだけど
 
-  def display(drs: List[DisplayRule], ts: List[(DictionaryElement, JValue)]): Unit = {
+  def display(drs: List[DisplayRule])(js: List[JInfo]): (Error \/ List[JInfo]) = {
     val num = {drs flatMap {
       case DisplayUpTo(n) => n.some
       case _ => None
     } headOption} getOrElse 25
-    ts take num map {
-      case (Blank, v: JValue) =>
-	if (drs contains DisplayPretty) {
-	  prend(v)
-	} else if (drs contains DisplayCompact) {
-	  crend(v)
-	}
-      case (k: DictionaryElement, v: JValue) =>
-	if (drs contains DisplayPretty) {
-	  k.str +"\n" + prend(v)
-	} else if (drs contains DisplayCompact) {
-	  k.str +" "+ crend(v)
-	} else {throw new Exception()}
-      case _ =>
-	throw new Exception("unexpected error")
-    } foreach println
+    js take num map {
+      ji =>
+      if (drs contains DisplayFileName) {
+        println( Configuration cddaCanonicalPath ji.file )
+      }
+      if (drs contains DisplayPretty) {
+        println( prend(ji.jv) )
+      } else if (drs contains DisplayCompact) {
+        println( crend(ji.jv) )
+      }
+      if (drs contains DisplayTranslated) {
+        dictionary foreach {
+          d =>
+          println( prend( d translate ji.jv ) )
+        }
+      }
+    }
+    js right
   }
 
   trait Queries {
     var dfs: List[DictionaryFilter] = List.empty
     var ofs: List[JObjectFilter] = List.empty
-    var drs: List[DisplayRule] = List.empty
+    var drs: List[DisplayRule] = List.empty   // これSetにしたくない？
     var rts: List[ResultTransform] = List.empty
     var bad: Option[Query] = None
 
@@ -199,6 +202,8 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
 //      case "recipe" :: xs => HasField("type", JString("recipe")) +: unl(xs)
 //    レシピを見に行くには、dictからnameを貰った上で、nameでitemを探して、そのitemのidでrecipeを探さないといけない
       case "id" :: xs => DisplayCompact +: ReturnValue("id") +: unl(xs)
+      case "translate" :: xs => DisplayTranslated +: unl(xs)
+      case "show" :: "path" :: xs => DisplayFileName +: unl(xs)
       case "up" :: "to" :: num :: xs => 
 	try {
 	  DisplayUpTo(num.toInt) +: unl(xs)
@@ -265,9 +270,11 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
   "OPTIONS" ::
   " up to <number>  検索結果の最大表示数を変更する デフォルトでは25" ::
   " id              見つけたjsonオブジェクトのidの値のみを表示する" ::
+  " translate       jsonオブジェクト内の文字列を翻訳して出力する" ::
+  " show path       そのjsonオブジェクトがどのfileにあったかを表示する" ::
   "" ::
   "QUANTIIFIER" :: 
-  " <key>=<string>     〃  を特定のキーと値の組を持つjsonオブジェクトに限定する" ::
+  " <key>=<string>  検索結果を特定のキーと値の組を持つjsonオブジェクトに限定する" ::
   " <key>=             〃  を   特定のキー   を持つ        〃           " ::
   " =<string>          〃  を   特定の値     を持つ        〃           " ::
   " name            poファイル内の名前っぽいもののみを対象にする" ::

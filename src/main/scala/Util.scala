@@ -47,7 +47,8 @@ trait UT {
 trait UTListOps[A] {
   protected[this] def tool: UT
   protected[this] def self: List[A]
-  def mapD[B,E](f: A => E \/ B): (E \/ List[B]) =
+  
+  def mapE[B,E](f: A => E \/ B): (E \/ List[B]) =
     tool.mapE(self)(f)
 }
 

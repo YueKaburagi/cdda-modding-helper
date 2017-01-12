@@ -10,10 +10,15 @@ import java.io.{File, FileWriter, BufferedWriter}
 object TranslationHelper extends Loader {
   def build(path: File, out: File) {
     val writer = new BufferedWriter( new FileWriter( out ))
-    recursiveLoad(path) map listupText map {_ toMap} flatMap toPoLikeString foreach {
-      str: String =>
-	writer write str
-        writer write "\n\n"
+    listAllJValuesWithFile(path) map {
+      case (jv, f) =>
+        val src = "#: " + f.getCanonicalPath + "\n"
+        toPoLikeString( listupText(jv).toMap )  foreach {
+          str: String =>
+          writer write src
+	  writer write str
+          writer write "\n\n"
+        }
     }
     writer flush
   }

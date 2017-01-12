@@ -83,7 +83,7 @@ object TransformTemplete extends DoAny {
     incompleteJSON lookup "__templates" match {
       case None => incompleteJSON right
       case Some(JArray(vs)) => 
-	vs mapD {
+	vs mapE {
 	  k =>
 	    lookupE(templates)(k) map second flatMap {mkInstance(templates)}
 	} map {ss => (ss :\ incompleteJSON){_ merge _} }
@@ -138,7 +138,7 @@ class ImportObject(_browser: Option[String] = None) extends DoAny {
     for {
       is <- jv lookup "ignore" match {
 	case None => List.empty[String].right
-	case Some(JArray(gs)) => gs mapD {
+	case Some(JArray(gs)) => gs mapE {
 	  case JString(s) => s.right
 	  case x => ExpectedValueType("JString", x).left
 	}
@@ -151,7 +151,7 @@ class ImportObject(_browser: Option[String] = None) extends DoAny {
 	ofs =>
 	  browser match {
 	    case None => NoBrowser.left
-	    case Some(b) => b lookupXs ofs match {
+	    case Some(b) => b lookupXs ofs toList match {
 	      case x :: Nil => x.right
 	      case _ => MultiRef.left
 	    }
@@ -234,7 +234,7 @@ class ImportObject(_browser: Option[String] = None) extends DoAny {
   val decimal = """(\d+)""".r
   val float = """(\d+\.\d+)""".r
   def splitString(str: String): (Error \/ List[Atom]) = {
-    {ws split str toList} mapD {
+    {ws split str toList} mapE {
       case uofe("this", r) => This(r).right
       case uofe(l,r) => Ref(l,r).right
       case "+" => Add.right
@@ -277,13 +277,13 @@ class ImportObject(_browser: Option[String] = None) extends DoAny {
       case jo@ JObject(fs) => 
 	{jo lookup "__import" match {
 	  case None => None
-	  case Some(JArray(vs)) => vs mapD mkObject some
+	  case Some(JArray(vs)) => vs mapE mkObject some
 	  case _ => FormatError("__import").left.some
 	}} match {
 	  case None => jo
 	  case Some(ux) => ux flatMap {
 	    ios =>
-	      fs mapD {fSecondE{
+	      fs mapE {fSecondE{
 		case JString(target(s)) => 
 		  splitString(s) flatMap {calc(jo, ios, _)}
 		case jv => jv.right

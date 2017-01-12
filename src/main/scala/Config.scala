@@ -10,7 +10,7 @@ import java.io.File
 
 object Configuration extends Loader with DoAny {
   // for browser
-  var cddaPath: Option[File] = None
+  var cddaRoot: Option[File] = None
   var poPath: Option[File] = None
   var consoleEncoding: String = "UTF-8"
   // for transform
@@ -28,12 +28,12 @@ object Configuration extends Loader with DoAny {
 
 
   def cddaJsonRoot: Option[File] =
-    cddaPath map {f => new File(f, "data/json")}
+    cddaRoot map {f => new File(f, "data/json")}
   def cddaModsRoot: Option[File] =
-    cddaPath map {f => new File(f, "data/mods")}
+    cddaRoot map {f => new File(f, "data/mods")}
   def cddaCanonicalPath(f: File): String =
     f.getAbsolutePath stripPrefix {
-      cddaPath match {
+      cddaRoot match {
         case Some(file) => file.getAbsolutePath
         case None => ""
       }
@@ -65,8 +65,8 @@ object Configuration extends Loader with DoAny {
   private[this] def loadSettings(jv: JValue) {
     jv match {
       case JObject(fs) => fs foreach {
-	case ("cdda_path", JString(cddaPath)) =>
-          this.cddaPath = new File(cddaPath).some
+	case ("cdda_root", JString(cddaRoot)) =>
+          this.cddaRoot = new File(cddaRoot).some
 	case ("po_path", JString(poPath)) =>
           this.poPath = new File(poPath).some
 	case ("destination", JString(destPath)) =>

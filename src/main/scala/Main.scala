@@ -39,8 +39,8 @@ object Log {
  * めんどくさいなー
  * 
  *
- * そのjsonオブジェクトがどのfileにあったかも表示したい
- *
+ * "messages": ["You brutally impale %s","<npcname> brutally impales %s"],
+ * ↑これ対応
  *
  * ${arr -- arr}こういうことしたいんだけど、右辺項どうやって求めよう
 // */
