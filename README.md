@@ -8,7 +8,7 @@
 といった発想から作成されています    
 
 自分用だったのでいろいろ雑です。テストとか書いてない     
-[cdda-anything-i-needs](https://github.com/YueKaburagi/cdda-anything-i-needs) で実際に使ってます
+[cdda-anything-i-needs](https://github.com/YueKaburagi/cdda-anything-i-needs) で実際に使ってます  
 
 README.md に ぐだぐだ書いてたものは [Wiki](https://github.com/YueKAburagi/cdda-modding-helper/wiki)
 に移動しました
