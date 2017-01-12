@@ -12,7 +12,7 @@ object TranslationHelper extends Loader {
     val writer = new BufferedWriter( new FileWriter( out ))
     listAllJValuesWithFile(path) map {
       case (jv, f) =>
-        val src = "#: " + f.getCanonicalPath + "\n"
+        val src = "#: " + getRelativePath(path)(f) + "\n"
         toPoLikeString( listupText(jv).toMap )  foreach {
           str: String =>
           writer write src
@@ -22,6 +22,8 @@ object TranslationHelper extends Loader {
     }
     writer flush
   }
+  private[this] def getRelativePath(d: File)(f: File): String =
+    f.getCanonicalPath stripPrefix {d.getParentFile.getCanonicalPath + "/" }
 
   private[this] def specializePlural(m: Map[String,String]): (Map[String,String], List[String]) =
     m get "name_plural" match {

@@ -31,10 +31,10 @@ object Configuration extends Loader with DoAny {
     cddaRoot map {f => new File(f, "data/json")}
   def cddaModsRoot: Option[File] =
     cddaRoot map {f => new File(f, "data/mods")}
-  def cddaCanonicalPath(f: File): String =
-    f.getAbsolutePath stripPrefix {
+  def cddaRelativePath(f: File): String =
+    f.getCanonicalPath stripPrefix {
       cddaRoot match {
-        case Some(file) => file.getAbsolutePath
+        case Some(file) => file.getCanonicalPath
         case None => ""
       }
     }

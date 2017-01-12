@@ -126,7 +126,7 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
     js take num map {
       ji =>
       if (drs contains DisplayFileName) {
-        println( Configuration cddaCanonicalPath ji.file )
+        println( Configuration cddaRelativePath ji.file )
       }
       if (drs contains DisplayPretty) {
         println( prend(ji.jv) )
