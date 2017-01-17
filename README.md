@@ -1,7 +1,7 @@
 
 # cdda-modding-helper 
 
-### 日本語
+### Summary(日本語)
 CataclysmDDA の mod 制作を補助するかもしれないツールです  
 - ある程度の json 自動生成  
 - 簡易的な json ブラウザ  
@@ -10,10 +10,10 @@ CataclysmDDA の mod 制作を補助するかもしれないツールです
 から成っています  
 自分用だったのでいろいろ雑です。テストとか書いてないし    
 
-ダウンロードはこっち > [Release](https://github.com/YueKaburagi/cdda-modding-helper/releases)   
+ダウンロードはこっち > [Releases](https://github.com/YueKaburagi/cdda-modding-helper/releases)   
 使い方はこっち > [Wiki](https://github.com/YueKaburagi/cdda-modding-helper/wiki)   
 
-### English
+### Summary(English)
 this is a tool for modding Cataclysm DDA. it features,  
 - transform json  
 - json browser  
@@ -23,8 +23,8 @@ but sorry,
 - these features are not pretty  
 - test only in Japanese   
 
-download > [Release](https://github.com/YueKaburagi/cdda-modding-helper/releases)   
-usage(Japanese) > [Wiki](https://github.com/YueKaburagi/cdda-modding-helper/wiki)   
+download > [Releases](https://github.com/YueKaburagi/cdda-modding-helper/releases)   
+usage (Japanese) > [Wiki](https://github.com/YueKaburagi/cdda-modding-helper/wiki)   
 
 ---------
 
@@ -38,4 +38,5 @@ usage(Japanese) > [Wiki](https://github.com/YueKaburagi/cdda-modding-helper/wiki
 といった発想から作成されています    
 
 [cdda-anything-i-needs](https://github.com/YueKaburagi/cdda-anything-i-needs) で実際に使ってます  
+comming soon [cdda-modding-helper-facade](https://github.com/YueKaburagi/cdda-modding-helper-facade)   
 
