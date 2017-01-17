@@ -1,5 +1,35 @@
 
-# cdda-modding-helper
+# cdda-modding-helper 
+
+### 日本語
+CataclysmDDA の mod 制作を補助するかもしれないツールです  
+- ある程度の json 自動生成  
+- 簡易的な json ブラウザ  
+- Modフォルダ から poファイル を生成する機能  
+
+から成っています  
+自分用だったのでいろいろ雑です。テストとか書いてないし    
+
+ダウンロードはこっち > [Release](https://github.com/YueKaburagi/cdda-modding-helper/releases)   
+使い方はこっち > [Wiki](https://github.com/YueKaburagi/cdda-modding-helper/wiki)   
+
+### English
+this is a tool for modding Cataclysm DDA. it features,  
+- transform json  
+- json browser  
+- make po file from foreign mod  
+
+but sorry,
+- these features are not pretty  
+- test only in Japanese   
+
+download > [Release](https://github.com/YueKaburagi/cdda-modding-helper/releases)   
+usage(Japanese) > [Wiki](https://github.com/YueKaburagi/cdda-modding-helper/wiki)   
+
+---------
+
+### 雑記
+
 これは CacaclysmDDA の mod をつくってるときに出た   
 - 何度も同じの書きたくないなー   
 - 仕様も頻繁に変化するからガチガチに固めてもtoolもmodもメンテ面倒だなー   
@@ -7,8 +37,5 @@
 
 といった発想から作成されています    
 
-自分用だったのでいろいろ雑です。テストとか書いてない     
 [cdda-anything-i-needs](https://github.com/YueKaburagi/cdda-anything-i-needs) で実際に使ってます  
 
-README.md に ぐだぐだ書いてたものは [Wiki](https://github.com/YueKAburagi/cdda-modding-helper/wiki)
-に移動しました
