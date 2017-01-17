@@ -10,6 +10,7 @@ CataclysmDDA の mod 制作を補助するかもしれないツールです
 から成っています  
 自分用だったのでいろいろ雑です。テストとか書いてないし    
 
+Java 7 以降で動作すると思います  
 ダウンロードはこっち > [Releases](https://github.com/YueKaburagi/cdda-modding-helper/releases)   
 使い方はこっち > [Wiki](https://github.com/YueKaburagi/cdda-modding-helper/wiki)   
 
@@ -23,6 +24,7 @@ but sorry,
 - these features are not pretty  
 - test only in Japanese   
 
+require Java 7 or later  
 download > [Releases](https://github.com/YueKaburagi/cdda-modding-helper/releases)   
 usage (Japanese) > [Wiki](https://github.com/YueKaburagi/cdda-modding-helper/wiki)   
 
