@@ -16,41 +16,168 @@ import scala.io.StdIn
 trait Query
 object BadQuery extends Query
 trait DictionaryFilter extends Query 
-object LookupByName extends DictionaryFilter
-object LookupAny extends DictionaryFilter
-case class Lookup(str: String) extends DictionaryFilter
-trait JObjectFilter extends Query {
-  def apply(fs: List[JField]): Boolean
+object LookupQueryString extends DictionaryFilter
+
+trait JItemFilter extends Query {
+  def apply(index: Browser#Index, ji: JInfo): Boolean
 }
-case class Not(f: JObjectFilter) extends JObjectFilter {
-  override def apply(fs: List[JField]) = ! f.apply(fs)
+trait JObjectFilter extends JItemFilter {
+  override def apply(id: Browser#Index, ji: JInfo) = {
+    ji.jv match {
+      case JObject(fs) => withJObject(fs)
+      case _ => false
+    }
+  }
+  def withJObject(fs: List[JField]): Boolean
 }
-case class HasKey(str: String) extends JObjectFilter {
-  override def apply(fs: List[JField]) = 
-    fs exists {case (k,_) => k == str}
+case class Not(f: JItemFilter) extends JItemFilter with JObjectFilter {
+  override def apply(id: Browser#Index, ji: JInfo) = ! f.apply(id, ji)
+  override def withJObject(fs: List[JField]): Boolean =
+    f match {
+      case jof: JObjectFilter => ! jof.withJObject(fs)
+      case _ => false
+    }
 }
-case class HasField(key: String, value: JValue) extends JObjectFilter {
-  override def apply(fs: List[JField]) =
-    fs exists {case (k,v) => k == key && v == value}
+case class And(fs: Set[JItemFilter]) extends JItemFilter {
+  override def apply(id: Browser#Index, ji: JInfo) =
+    if (fs isEmpty) {true}
+    else {fs forall (_ apply (id,ji))}
 }
-case class HasValue(value: JValue) extends JObjectFilter {
-  override def apply(fs: List[JField]) =
-    fs exists {case (_,v) => v == value}
-}
-trait DisplayRule extends Query
-object DisplayPretty extends DisplayRule
-object DisplayCompact extends DisplayRule
-object DisplayTranslated extends DisplayRule
-object DisplayFileName extends DisplayRule
-case class DisplayUpTo(upto: Int) extends DisplayRule
-trait ResultTransform extends Query {
-  def apply(ji: JInfo): Option[JInfo]
-}
-case class ReturnValue(key: String) extends ResultTransform {
-  override def apply(ji: JInfo) =
-    ji.jv findField {case (k,_) => k == key} map {case (_,v) => JInfo(v, ji.file)}
+case class Or(fs: Set[JItemFilter]) extends JItemFilter {
+  override def apply(id: Browser#Index, ji: JInfo) =
+    if (fs isEmpty) {true}
+    else {fs exists (_ apply (id,ji))}
 }
 
+case class HasKey(str: String) extends JObjectFilter {
+  override def withJObject(fs: List[JField]) = 
+    fs exists {case (k,_) => k == str}
+}
+case class HasSuchField(key: String, value: JValue) extends JObjectFilter {
+  override def withJObject(fs: List[JField]) =
+    fs exists {
+      case (k,v) => k == key && v == value
+    }
+}
+case class HasField(key: String, value: String) extends JObjectFilter {
+  override def withJObject(fs: List[JField]) =
+    fs exists {
+      case (k,JString(v)) => k == key && v == value
+      case _ => false
+    }
+}
+case class HasValue(value: String) extends JObjectFilter {
+  override def withJObject(fs: List[JField]) =
+    fs exists {
+      case (_,JString(v)) => v == value
+      case _ => false
+    }
+}
+
+case class HasKeyP(str: String) extends JObjectFilter {
+  override def withJObject(fs: List[JField]) = 
+    fs exists {case (k,_) => k containsSlice str}
+}
+case class HasFieldPP(key: String, value: String) extends JObjectFilter {
+  override def withJObject(fs: List[JField]) =
+    fs exists {
+      case (k,JString(v)) => (k containsSlice key) && (v containsSlice value)
+      case _ => false
+    }
+}
+case class HasFieldXP(key: String, value: String) extends JObjectFilter {
+  override def withJObject(fs: List[JField]) =
+    fs exists {
+      case (k,JString(v)) => (k == key) && (v containsSlice value)
+      case _ => false
+    }
+}
+case class HasFieldPX(key: String, value: String) extends JObjectFilter {
+  override def withJObject(fs: List[JField]) =
+    fs exists {
+      case (k,JString(v)) => (k containsSlice key) && (v == value)
+      case _ => false
+    }
+}
+case class HasValueP(value: String) extends JObjectFilter {
+  override def withJObject(fs: List[JField]) = 
+    fs exists {
+      case (_,JString(v)) => v containsSlice value
+      case _ => false
+    }
+}
+trait SourceFilter extends JItemFilter 
+case class ById(index: String) extends SourceFilter {
+  override def apply(id: Browser#Index, ji: JInfo) = true
+}
+case class ByRoot(root: String) extends SourceFilter {
+  override def apply(id: Browser#Index, ji: JInfo) = true
+  // root ji.file
+}
+trait PrintMode extends Query
+object PrintPretty extends PrintMode
+object PrintCompact extends PrintMode
+object PrintNum extends PrintMode
+//object PrintTable extends PrintMode
+trait PrintRule extends Query
+case class PrintUpTo(upto: Int) extends PrintRule
+object PrintAll extends PrintRule
+
+object DisplayFull { // is not DisplayRule
+  def apply(ji: JInfo): List[JField] = ji match {
+    case JInfo(jv, _, _) =>
+      jv match {
+        case JObject(fs) => fs
+        case x => List("(value)" -> x)
+      }
+  }
+}
+trait DisplayRule extends Query with Function1[JInfo, List[JField]]
+object DisplayFileName extends DisplayRule {
+  override def apply(ji: JInfo) = ji match {
+    case JInfo(_, f, _) =>
+      List( "file" -> JString( Configuration cddaRelativePath f ) )
+  }
+}
+case class ReturnValue(key: String) extends DisplayRule with DoAny {
+  override def apply(ji: JInfo) = ji match {
+    case JInfo(jv, f, ix) =>
+      List(jv lookup key map (key -> _)).flatten
+  }
+}
+object DisplayIndex extends DisplayRule {
+  override def apply(ji: JInfo) = ji match {
+    case JInfo(_, _, ix) =>
+      List( "ix" -> JString(ix.toString) )
+  }
+
+}
+object DisplayForFacadeList extends DisplayRule with DoAny {
+  override def apply(ji: JInfo) = ji match {
+    case JInfo(jv, _, ix) =>
+      def s = jv lookup "name"
+      def p = jv lookup "id"
+      def r = jv lookup "type"
+      def s_ = jv lookup "symbol"
+      def y_ = jv lookup "sym" map {
+        case JInt(n) => JString(n.toChar.toString)
+        case x => x
+      }
+      List( s orElse p orElse r orElse JString("(no name/id/type)").some map ("name" -> _)
+        , s_ orElse y_ map ("symbol" -> _)
+        , jv lookup "color" map ("color" -> _) ).flatten
+  }
+}
+//object DisplayForFacadeJson extends DisplayRule
+//object PrintForFacadeRaw extends PrintMode 
+trait ResultTransform extends Query with Function1[JInfo, JInfo]
+case class ResultTranslate(dictionary: Option[Dictionary]) extends ResultTransform {
+  override def apply(i: JInfo) = 
+    i match {
+    case JInfo(jv, f, ix) =>
+      dictionary map {d => JInfo(d translate jv, f, ix)} getOrElse i
+  }
+}
 
 
 class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None) extends DoAny with Loader {
@@ -63,126 +190,127 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
 
   def parseQueryString(input: String): (Error \/ Queries) =
     ws split input toList match {
-        case "lookup" :: xs => {LookupAny +: DisplayPretty +: unl(xs)} right
-        case "find" :: xs => {DisplayPretty +: unl(xs)} right
+        case "lookup" :: xs => {LookupQueryString +: unl(xs)} right
+        case "find" :: xs => unl(xs) right
         case _ => NoSuchCommand.left
       }
 
-  def execQuery(input: String): (Error \/ List[JInfo]) =
+  def execQuery(input: String): (Error \/ Unit) =
     for {
       qs <- parseQueryString(input)
-      ofss <- getOfss(qs)
-      jis <- toJis(qs, ofss)
-      d <- display( qs.drs )( jis )
+      ifs <- getIfs(qs)
+      jis <- search(ifs)
+      pf <- printFormat( qs.displayRules )( jisTransform(qs)(jis) ).right
+      d <- display( qs.printMode )( pf ).right
     } yield { d }
 
-  def getOfss(qs: Queries): (PromptError \/ List[List[JObjectFilter]]) =
-    if ( qs.dfs isEmpty ) {
-      List( qs.ofs ).right // (Blank, qs.ofs)
+  def getIfs(qs: Queries): (Error \/ Set[JItemFilter]) =
+    if (qs.withTranslate) {
+      replaceJObjectFilter( qs.itemFilters )
     } else {
-      fetchPages( qs.dfs ) map {
-        _ map {
-          case (de, str) =>
-            HasValue(JString(str)) :: qs.ofs // (de, HasValue() :: qs.ofs)
-        }
-      }
+      qs.itemFilters.right
     }
-  def toJis(qs: Queries, ofss: List[List[JObjectFilter]]): (Error \/ List[JInfo]) =
-    ofss mapE search map {_ flatMap {_ flatMap {filtered( qs.rts )}}}
 
-  def fetchPages(dfs: List[DictionaryFilter]): (PromptError \/ List[(DictionaryElement, String)]) =
+  def replaceJObjectFilter(ifs: Set[JItemFilter]): (Error \/ Set[JItemFilter]) = {
+    val (ofs, others) = ifs partition {
+      case x: JObjectFilter => true
+      case _ => false
+    }
     dictionary match {
-      case None => NoDictionary.left
       case Some(d) =>
-        val orders = dfs flatMap {
-	  case Lookup(str) => str.some
-	  case _ => None
-        }
-        if (orders nonEmpty) {
-	  if (dfs contains LookupAny) { d lookup (orders.head) right }
-	  else if (dfs contains LookupByName) { d nameLookup (orders.head) right }
-	  else { InvalidQueryFormat.left }
-        } else NoDictionaryOrder.left
+        {{ofs map {f: JItemFilter => f match {
+          case HasValueP(v) => Or( d lookupS v map {x => HasValue(x)} )
+          case HasValue(v) => Or( d findS v map {x => HasValue(x)} )
+          case HasFieldPP(k,v) => Or( d lookupS v map {x => HasFieldPX(k,x)} )
+          case HasFieldXP(k,v) => Or( d lookupS v map {x => HasField(k,x)} )
+          case HasFieldPX(k,v) => Or( d findS v map {x => HasFieldPX(k,x)} )
+          case HasField(k,v) => Or( d findS v map  {x => HasField(k,x)})
+          case o => o
+        }}} |+| others}.right
+      case None => NoDictionary.left
     }
+  }
+  def jisTransform(qs: Queries)(jis: Set[JInfo]): Set[JInfo] = {
+    def num = qs.printRules.flatMap {
+      case PrintUpTo(n) => n.some
+      case _ => None
+    }.headOption getOrElse 25
+    def js = (qs.printRules contains PrintAll) ? (jis) | (jis take num)
+    js map {filtered(qs.resultTransforms)}
+  }
 
-  def search(ofs: List[JObjectFilter]): (PromptError \/ Set[JInfo]) =
+  def search(ifs: Set[JItemFilter]): (PromptError \/ Set[JInfo]) =
     browser match {
       case None => NoBrowser.left
-      case Some(b) => b lookupXsf ofs right
+      case Some(b) => {b lookupXsf ifs}.values.toSet.right
     }
-  def filtered(rts: List[ResultTransform])(ji: JInfo): Option[JInfo] =
-    if (rts isEmpty) {
-      ji.some
-    } else {
-      rts flatMap {_.apply(ji)} headOption
-    }
-    // 複数適用ってどうする？ 今は特定のfieldを抽出してるだけだけど
+  def filtered(rts: List[ResultTransform])(ji: JInfo): JInfo =
+    (ji /: rts){case (a,b) => b apply a}
 
-  def display(drs: List[DisplayRule])(js: List[JInfo]): (Error \/ List[JInfo]) = {
-    val num = {drs flatMap {
-      case DisplayUpTo(n) => n.some
-      case _ => None
-    } headOption} getOrElse 25
-    js take num map {
+  def printFormat(drs: Set[DisplayRule])(js: Set[JInfo]): Set[JObject] =
+    js map {
       ji =>
-      if (drs contains DisplayFileName) {
-        println( Configuration cddaRelativePath ji.file )
+      if (drs isEmpty) {
+        DisplayFull(ji)
+      } else {
+        (List.empty[JField] /: drs){case (fs,f) => (f apply ji) |+| fs }
       }
-      if (drs contains DisplayPretty) {
-        println( prend(ji.jv) )
-      } else if (drs contains DisplayCompact) {
-        println( crend(ji.jv) )
-      }
-      if (drs contains DisplayTranslated) {
-        dictionary foreach {
-          d =>
-          println( prend( d translate ji.jv ) )
-        }
-      }
+    } map {JObject(_)}
+
+  def display(pm: PrintMode)(js: Set[JObject]): Unit = {
+    pm match {
+      case PrintPretty =>
+        js foreach {jv => println( prend(jv) )}
+      case PrintCompact =>
+        js foreach {jv => println( crend(jv) )}
+      case PrintNum =>
+        println( s"found ${js.size} objects.")
     }
-    js right
   }
 
   trait Queries {
-    var dfs: List[DictionaryFilter] = List.empty
-    var ofs: List[JObjectFilter] = List.empty
-    var drs: List[DisplayRule] = List.empty   // これSetにしたくない？
-    var rts: List[ResultTransform] = List.empty
+    private[this] var dfs: Option[DictionaryFilter] = None
+    private[this] var ifs: Set[JItemFilter] = Set.empty
+    private[this] var drs: Set[DisplayRule] = Set.empty
+    private[this] var pm: PrintMode = PrintPretty
+    private[this] var prs: Set[PrintRule] = Set.empty
+    private[this] var rts: List[ResultTransform] = List.empty
     var bad: Option[Query] = None
 
+    def dictionaryFilter = dfs
+    def itemFilters = ifs
+    def displayRules = drs
+    def printMode = pm
+    def printRules = prs
+    def resultTransforms = rts
+
+    def withTranslate: Boolean = dictionaryFilter contains LookupQueryString
+
+    // state 
+    var lJIF: Option[JItemFilter] = None
+
     def not: this.type = {
-      ofs match {
-	case x :: xs => ofs = Not(x) :: xs
-	case _ => throw new Exception("ofs")
+      lJIF match {
+        case Some(jif) => ifs = {ifs filterNot (jif == _)} + Not(jif)
+        case None => throw new Exception("not ???")
       }
       this
     }
     def +:(q: Query): this.type = {
       q match {
 	case df: DictionaryFilter =>
-	  df match {
-	    case LookupByName =>
-	      dfs = df :: {dfs dropWhile(_ == LookupAny)}
-	    case LookupAny =>
-	      if (!(dfs contains LookupByName)) 
-		dfs = df :: dfs
-	    case _ =>
-	      dfs = df :: dfs
-	  }
-	case of: JObjectFilter =>
-	  ofs = of :: ofs
+	  dfs = df.some
+	case jif: JItemFilter =>
+          lJIF = jif.some
+	  ifs = ifs + jif
 	case dr: DisplayRule =>
-	  dr match {
-	    case DisplayCompact =>
-	      drs = dr :: (drs dropWhile (_ == DisplayPretty))
-	    case DisplayPretty =>
-	      if (!(drs contains DisplayCompact))
-		drs = dr :: drs
-	    case _ => 
-	      drs = dr :: drs
-	  }
+	  drs = drs + dr
 	case rt: ResultTransform =>
 	  rts = rt :: rts
+        case p: PrintMode =>
+          pm = p
+        case pr: PrintRule =>
+          prs = prs + pr
 	case BadQuery =>
 	  bad = BadQuery.some
       }
@@ -192,38 +320,50 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
   object Queries {
     def empty: Queries = new Queries {}
   }
-  
+
   def unl(coms: List[String]): Queries = {
     coms match {
       case Nil => Queries.empty
       case "no" :: xs => unl(xs).not
-      case "name" :: xs => LookupByName +: unl(xs)
-      case "item" :: xs => HasKey("volume") +: unl(xs)
+//      case "item" :: xs => HasKey("volume") +: unl(xs)
 //      case "recipe" :: xs => HasField("type", JString("recipe")) +: unl(xs)
 //    レシピを見に行くには、dictからnameを貰った上で、nameでitemを探して、そのitemのidでrecipeを探さないといけない
-      case "id" :: xs => DisplayCompact +: ReturnValue("id") +: unl(xs)
-      case "translate" :: xs => DisplayTranslated +: unl(xs)
-      case "show" :: "path" :: xs => DisplayFileName +: unl(xs)
+      case "show" :: s :: xs => ReturnValue(s) +: unl(xs)
+      case "translate" :: xs => ResultTranslate(dictionary) +: unl(xs)
+      case "disp" :: "path" :: xs => DisplayFileName +: unl(xs)
+      case "short" :: xs => PrintCompact +: unl(xs)
+      case "forFacadeList"  :: xs =>
+        PrintCompact +: DisplayForFacadeList +: DisplayIndex +: unl(xs)
+      case "forFacadeRaw" :: xs =>
+        PrintPretty +: unl(xs)
+      case "num" :: xs => PrintNum +: unl(xs)
+      case "all" :: xs => PrintAll +: unl(xs)
       case "up" :: "to" :: num :: xs => 
 	try {
-	  DisplayUpTo(num.toInt) +: unl(xs)
+	  PrintUpTo(num.toInt) +: unl(xs)
 	} catch {
 	  case e: NumberFormatException =>
 	    Log.error("format error: " +num)
 	    BadQuery +: Queries.empty
 	}
-      case pKeyValue(key,value) :: xs => HasField(key, JString(value)) +: unl(xs)
-        // v の中身をparseして部分検索すると便利そう？
+      case pId(index) :: xs => ById(index) +: unl(xs)
+      case pPartialField(key,value) :: xs => HasFieldXP(key, value) +: unl(xs)
+      case pKeyValue(key,value) :: xs => HasField(key, value) +: unl(xs)
       case pKey(key) :: xs => HasKey(key) +: unl(xs)
-      case pValue(value) :: xs => HasValue(JString(value)) +: unl(xs)
-      case str :: xs => Lookup(str) +: unl(xs)
+      case pPartialValue(value) :: xs => HasValueP(value) +: unl(xs)
+      case pValue(value) :: xs => HasValue(value) +: unl(xs)
+      case str :: xs =>
+        Log.error("format error] " +str)
+        BadQuery +: unl(xs)
     }
   }
   val pKeyValue = """([^\s]+)=([^\s]+)""".r
   val pKey = """([^\s]+)=""".r
   val pValue = """=([^\s]+)""".r
-  // ()=?() partial match order??
-
+  val pId = """#([^\s]+)""".r
+  // partial match 
+  val pPartialValue = """=\?([^\s]+)""".r
+  val pPartialField = """([^\s]+)=?([^\s]+)""".r
 
   def consoleEncoding = Configuration.consoleEncoding
   def wrappedPrompt() {
@@ -238,7 +378,7 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
   }
   
   def prompt() {
-    print("> ")
+    print("Browser > ")
     StdIn readLine match {
       case "exit" => // do nothing
       case "help" => 
@@ -261,24 +401,35 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
 
   val help = "*help*" ::
   "COMMANDS" ::
-  " lookup [options] <string>  入力文字列でpoファイルを逆引きし、" :: 
-  "                            その値を持つjsonオブジェクト一覧を表示する" ::
-  " find [options]             po逆引きを行わないモード" :: 
-  " exit                       終わる" ::
+  " lookup [options|quantifier...]" ::
+  "           検索前にQUANTIFIERの<key>や<string>を" ::
+  "           po逆引きしてから検索するモード" ::
+  "           (逆引きに失敗した場合は入力をそのまま使います)" ::
+  " find [options|quantifier...]" ::
+  "           po逆引きを行わないモード" ::
+  " exit      終わる" ::
   "" ::
   "" ::
   "OPTIONS" ::
   " up to <number>  検索結果の最大表示数を変更する デフォルトでは25" ::
-  " id              見つけたjsonオブジェクトのidの値のみを表示する" ::
+  " all             検索結果を全て表示する (up to 指定を無視する)" ::
+  " show <key>      見つけたjsonオブジェクトの<key>の値のみを表示する" ::
   " translate       jsonオブジェクト内の文字列を翻訳して出力する" ::
-  " show path       そのjsonオブジェクトがどのfileにあったかを表示する" ::
+  " disp path       そのjsonオブジェクトがどのfileにあったかを表示する" ::
+  " short           コンパクト表示を行う" ::
+  " num             検索結果の数を表示する" ::
   "" ::
-  "QUANTIIFIER" :: 
-  " <key>=<string>  検索結果を特定のキーと値の組を持つjsonオブジェクトに限定する" ::
-  " <key>=             〃  を   特定のキー   を持つ        〃           " ::
-  " =<string>          〃  を   特定の値     を持つ        〃           " ::
-  " name            poファイル内の名前っぽいもののみを対象にする" ::
-  " item            検索対象をアイテムに限定する (volume=)と等価" ::
+  "QUANTIFIER" ::
+  " <string> は文字列として扱う ([1,2,3]とかあっても配列じゃなくて文字列)" ::
+  " 完全一致検索 " ::
+  "  <key>=<string>  特定のキーと値の組を持つ" ::
+  "  <key>=          特定のキーを持つ" ::
+  "  =<string>       特定の値を持つ" ::
+  " 部分一致検索 " ::
+  "  <key>=?<string> 特定のキーを持ち、値に部分一致する組を持つ" ::  
+  "  =?<string>      部分一致する値を持つ" ::
+//  " name            poファイル内の名前っぽいもののみを対象にする" ::
+//  " item            検索対象をアイテムに限定する (volume=)と等価" ::
   " no <quantifier> 直後の限定子を否定する" ::
   Nil
 

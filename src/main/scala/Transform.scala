@@ -129,7 +129,7 @@ class ImportObject(_browser: Option[String] = None) extends DoAny {
   private[this] def mkQuery(fs: List[JField]): List[JObjectFilter] =
     fs map {
       case (key, JString("__undefined")) => Not(HasKey(key))
-      case (key, value) => HasField(key, value)
+      case (key, value) => HasSuchField(key, value)
     }
   
   case class ImportedObject(val instance: JValue, val rule: String, val ident: Option[String])

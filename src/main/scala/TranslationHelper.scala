@@ -7,6 +7,10 @@ import org.json4s._
 
 import java.io.{File, FileWriter, BufferedWriter}
 
+
+// profession と scenario と startname には msgctxt でその名前と説明が性別毎に2パターン生成されるべきだってさ
+// type見て(場合によっては性別もチェックして)json毎に特殊化する必要があるってことですん
+// mods に対象のmodも入れて extract_json_strings.py 動かしてもらった方がみんな幸せですね
 object TranslationHelper extends Loader {
   def build(path: File, out: File) {
     val writer = new BufferedWriter( new FileWriter( out ))

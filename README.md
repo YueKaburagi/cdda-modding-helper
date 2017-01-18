@@ -5,7 +5,7 @@
 CataclysmDDA の mod 制作を補助するかもしれないツールです  
 - ある程度の json 自動生成  
 - 簡易的な json ブラウザ  
-- Modフォルダ から poファイル を生成する機能  
+- ~~Modフォルダ から poファイル を生成する機能~~ 公式のpythonスクリプト使ったほうがいいんじゃないかな  
 
 から成っています  
 自分用だったのでいろいろ雑です。テストとか書いてないし    
@@ -18,13 +18,13 @@ Java 7 以降で動作すると思います
 this is a tool for modding Cataclysm DDA. it features,  
 - transform json  
 - json browser  
-- make po file from foreign mod  
+- ~~make po file from foreign mod~~ you should use official python script  
 
 but sorry,
 - these features are not pretty  
 - test only in Japanese   
 
-require Java 7 or later  
+requires Java 7 or later  
 download > [Releases](https://github.com/YueKaburagi/cdda-modding-helper/releases)   
 usage (Japanese) > [Wiki](https://github.com/YueKaburagi/cdda-modding-helper/wiki)   
 

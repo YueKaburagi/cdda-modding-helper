@@ -79,12 +79,18 @@ object DictLoader {
 
 class Dictionary(src: Map[DictionaryElement, List[String]]) {
   def lookup(str: String): List[(DictionaryElement, String)] = 
-    {src filter {case (k,v) => k.str contains str} toList} flatMap {case (k,vs) => vs map {(k,_)}}
+  {src filter {case (k,v) => k.str contains str} toList} flatMap {case (k,vs) => vs map {(k,_)}}
+
   def nameLookup(str: String): List[(DictionaryElement, String)] = 
     {src filter {
       case (AsName(k),v) => k contains str
       case _ => false
     } toList} flatMap {case (k,vs) => vs map {(k,_)}}
+
+  def lookupS(str: String): Set[String] =
+    src.filter{case (k,v) => k.str containsSlice str}.values.flatten.toSet
+  def findS(str: String): Set[String] =
+    src.filter{case (k,v) => k.str == str}.values.flatten.toSet
 
   def rfind(str: String): Option[String] =
     src.filter{case (k,v) => v contains str}.keys.map{_.str}.headOption
