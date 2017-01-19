@@ -140,7 +140,7 @@ object DisplayFileName extends DisplayRule {
       List( "file" -> JString( Configuration cddaRelativePath f ) )
   }
 }
-case class ReturnValue(key: String) extends DisplayRule with DoAny {
+case class DisplayThisValue(key: String) extends DisplayRule with DoAny {
   override def apply(ji: JInfo) = ji match {
     case JInfo(jv, f, ix) =>
       List(jv lookup key map (key -> _)).flatten
@@ -169,8 +169,12 @@ object DisplayForFacadeList extends DisplayRule with DoAny {
         , jv lookup "color" map ("color" -> _) ).flatten
   }
 }
-//object DisplayForFacadeJson extends DisplayRule
-//object PrintForFacadeRaw extends PrintMode 
+object DisplayForFacadeJson extends DisplayRule {
+  override def apply(ji: JInfo) = ji match {
+    case JInfo(jv, _,_) =>
+      List( "body" -> jv )
+  }
+}
 trait ResultTransform extends Query with Function1[JInfo, JInfo]
 case class ResultTranslate(dictionary: Option[Dictionary]) extends ResultTransform {
   override def apply(i: JInfo) = 
@@ -333,7 +337,7 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
 //      case "item" :: xs => HasKey("volume") +: unl(xs)
 //      case "recipe" :: xs => HasField("type", JString("recipe")) +: unl(xs)
 //    レシピを見に行くには、dictからnameを貰った上で、nameでitemを探して、そのitemのidでrecipeを探さないといけない
-      case "show" :: s :: xs => ReturnValue(s) +: unl(xs)
+      case "show" :: s :: xs => DisplayThisValue(s) +: unl(xs)
       case "translate" :: xs => ResultTranslate(dictionary) +: unl(xs)
       case "disp" :: "path" :: xs => DisplayFileName +: unl(xs)
       case "short" :: xs => PrintCompact +: unl(xs)
@@ -341,6 +345,8 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
         PrintAsJArray +: DisplayForFacadeList +: DisplayIndex +: unl(xs)
       case "forFacadeRaw" :: xs =>
         PrintPretty +: unl(xs)
+      case "forFacadeInfo" :: xs =>
+        PrintCompact +: DisplayForFacadeJson +: DisplayFileName +: unl(xs)
       case "num" :: xs => PrintNum +: unl(xs)
       case "all" :: xs => PrintAll +: unl(xs)
       case "up" :: "to" :: num :: xs => 
