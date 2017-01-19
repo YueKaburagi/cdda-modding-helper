@@ -24,14 +24,13 @@ class Browser(jinfos: Map[Browser#Index, JInfo]) extends UT {
       case ById(_) => true
       case _ => false
     }
-    { if (ids nonEmpty) {
+    def src = if (ids nonEmpty) {
       ids flatMap {
         case ById(s) => lookupById(s)
         case _ => None
       } toMap
-    } else {
-      jinfos
-    } } filter {case (k,v) => ffs forall {_ apply (k,v)} }
+    } else {jinfos}
+    src filter {case (k,v) => ffs forall {_ apply (k,v)} }
   }
     
   def lookupXs(fs: Seq[JObjectFilter]): Set[JValue] =
@@ -49,6 +48,7 @@ object BrowserLoader extends Loader {
   def loadBrowser(dir: File): Browser = {
     new Browser(listAllJValuesWithFile(dir) map {
       case (jv,f) =>
+        // このあたりで jo でない jvalue を検出してみるといいかと
         val t = nextId()
         (t, JInfo(jv,f,t))
     } toMap)

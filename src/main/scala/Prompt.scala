@@ -22,7 +22,7 @@ trait JItemFilter extends Query {
   def apply(index: Browser#Index, ji: JInfo): Boolean
 }
 trait JObjectFilter extends JItemFilter {
-  override def apply(id: Browser#Index, ji: JInfo) = {
+  override def apply(id: Browser#Index, ji: JInfo) = { 
     ji.jv match {
       case JObject(fs) => withJObject(fs)
       case _ => false
@@ -118,6 +118,7 @@ trait PrintMode extends Query
 object PrintPretty extends PrintMode
 object PrintCompact extends PrintMode
 object PrintNum extends PrintMode
+object PrintAsJArray extends PrintMode
 //object PrintTable extends PrintMode
 trait PrintRule extends Query
 case class PrintUpTo(upto: Int) extends PrintRule
@@ -236,7 +237,7 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
       case _ => None
     }.headOption getOrElse 25
     def js = (qs.printRules contains PrintAll) ? (jis) | (jis take num)
-    js map {filtered(qs.resultTransforms)}
+    js map {transform(qs.resultTransforms)}
   }
 
   def search(ifs: Set[JItemFilter]): (PromptError \/ Set[JInfo]) =
@@ -244,7 +245,7 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
       case None => NoBrowser.left
       case Some(b) => {b lookupXsf ifs}.values.toSet.right
     }
-  def filtered(rts: List[ResultTransform])(ji: JInfo): JInfo =
+  def transform(rts: List[ResultTransform])(ji: JInfo): JInfo =
     (ji /: rts){case (a,b) => b apply a}
 
   def printFormat(drs: Set[DisplayRule])(js: Set[JInfo]): Set[JObject] =
@@ -258,14 +259,18 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
     } map {JObject(_)}
 
   def display(pm: PrintMode)(js: Set[JObject]): Unit = {
-    pm match {
+    pm match { 
       case PrintPretty =>
-        js foreach {jv => println( prend(jv) )}
+        js foreach {jv => println( prend(jv) )} 
       case PrintCompact =>
         js foreach {jv => println( crend(jv) )}
+      case PrintAsJArray =>
+        println (
+          js map crend mkString("[",",","]")
+        )
       case PrintNum =>
         println( s"found ${js.size} objects.")
-    }
+    } // もしかしたら Buffer して 全部書き込んでから flush とする必要があるかも
   }
 
   trait Queries {
@@ -333,7 +338,7 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
       case "disp" :: "path" :: xs => DisplayFileName +: unl(xs)
       case "short" :: xs => PrintCompact +: unl(xs)
       case "forFacadeList"  :: xs =>
-        PrintCompact +: DisplayForFacadeList +: DisplayIndex +: unl(xs)
+        PrintAsJArray +: DisplayForFacadeList +: DisplayIndex +: unl(xs)
       case "forFacadeRaw" :: xs =>
         PrintPretty +: unl(xs)
       case "num" :: xs => PrintNum +: unl(xs)
@@ -363,7 +368,7 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
   val pId = """#([^\s]+)""".r
   // partial match 
   val pPartialValue = """=\?([^\s]+)""".r
-  val pPartialField = """([^\s]+)=?([^\s]+)""".r
+  val pPartialField = """([^\s]+)=\?([^\s]+)""".r
 
   def consoleEncoding = Configuration.consoleEncoding
   def wrappedPrompt() {
