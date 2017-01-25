@@ -10,7 +10,15 @@ import org.json4s._
 import java.io.File
 
 case class JInfo(jv: JValue, file: File, index: Browser#Index, raw: JValue)
-case class ModInfo(root: File, name: String)
+case class ModInfo(root: File, ident: String, name: String)
+
+object Browser {
+  def isCDDA(mi: => ModInfo): Boolean =
+    mi.ident == "dda"
+
+  def whereis(mis: => Set[ModInfo])(target: => JInfo): Option[ModInfo] =
+    mis find {case ModInfo(rt,_,_) => target.file.getCanonicalPath startsWith rt.getCanonicalPath}
+}
 
 trait Browser extends UT {
   type Index = Int
@@ -56,6 +64,7 @@ trait Browser extends UT {
 object BrowserLoader extends Loader with DoAny {
   def loadBrowser(dir: File): Browser = {
     // ちょっと大きいので par にするべき？
+    // file io が遅いのはしょうがない？
     val jz = listAllJValuesWithFile(dir)
     val jinfos = jz map {
       case (jv,f) =>
@@ -63,18 +72,34 @@ object BrowserLoader extends Loader with DoAny {
         val t = nextId()
         (t, JInfo(jv,f,t,jv))
     }
+    val modinfos = jz flatMap {
+      case (jv,f) =>
+        jv lookup "type" exists (_ == JString("MOD_INFO")) match {
+          case false => None
+          case true =>
+            for {
+              root <- Option(f getParentFile)
+              ident <- jv lookup "ident" flatMap {case JString(s) => s.some; case _ => None}
+              name <- jv lookup "name" flatMap {case JString(s) => s.some; case _ => None}
+            } yield ( ModInfo(root,ident,name) )
+        }
+    } toSet
+    // 検索高速化のためのインデックス作成 (copy-from用)
     val lu: Map[JString, JValue] = {jz flatMap {
       case (jv,_) =>
         (jv lookup "id") orElse (jv lookup "abstract") flatMap {
           case js@JString(_) =>
             // rebalance系mod による既存アイテムの override 形式のjsonでひっかかる循環の回避
-            // 誰かが相互置換みたいなことやってると将来バグる
+            // 誰かが相互置換みたいなことやってると将来バグる (二次以上の循環は検出できない)
+            // jsonがどのmodにあったかで突破できない？
+            // 複数あったら Browser.isCDDA(Browser.whereis(modinfos)(jv)) にかける？
             if (jv lookup "copy-from" exists (_ == js)) {None} else (js,jv).some
           case _ => None
         }
     } toMap}
     new Browser {
       override val infos = jinfos map wrap(solveCopyFrom(lu.get)) toMap
+      override val mods = modinfos
     }
   }
   private[this] def wrap(f: JValue => JValue)(ji: (Browser#Index, JInfo)): (Browser#Index, JInfo) =
@@ -107,9 +132,6 @@ object BrowserLoader extends Loader with DoAny {
       } getOrElse jv
       case Some(_) => jv
     }
-  // obsolated
-  private[this] def idSolver(jvs: => List[(Browser#Index, JInfo)])(js: JString): Option[JValue] = 
-    jvs map (_._2.jv) find (v => (v lookup "id") orElse (v lookup "abstract") exists (_ == js))
 
 
   // 一意に決定できればいいだけなので
