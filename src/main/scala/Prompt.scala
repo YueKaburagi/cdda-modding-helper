@@ -125,37 +125,43 @@ case class PrintUpTo(upto: Int) extends PrintRule
 object PrintAll extends PrintRule
 
 object DisplayFull { // is not DisplayRule
-  def apply(ji: JInfo): List[JField] = ji match {
-    case JInfo(jv, _, _) =>
-      jv match {
-        case JObject(fs) => fs
-        case x => List("(value)" -> x)
-      }
+  def apply(ji: JInfo): List[JField] = ji.jv match {
+    case JObject(fs) => fs
+    case x => List("(value)" -> x)
   }
 }
 trait DisplayRule extends Query with Function1[JInfo, List[JField]]
+object DisplayRaw extends DisplayRule {
+  override def apply(ji: JInfo) = ji match {
+    case JInfo(_, _, _, raw) =>
+      raw match {
+        case JObject(fs) => fs
+        case x => List("(raw)" -> x)
+      }
+  }
+}
 object DisplayFileName extends DisplayRule {
   override def apply(ji: JInfo) = ji match {
-    case JInfo(_, f, _) =>
+    case JInfo(_, f, _, _) =>
       List( "file" -> JString( Configuration cddaRelativePath f ) )
   }
 }
 case class DisplayThisValue(key: String) extends DisplayRule with DoAny {
   override def apply(ji: JInfo) = ji match {
-    case JInfo(jv, f, ix) =>
+    case JInfo(jv, f, ix, _) =>
       List(jv lookup key map (key -> _)).flatten
   }
 }
 object DisplayIndex extends DisplayRule {
   override def apply(ji: JInfo) = ji match {
-    case JInfo(_, _, ix) =>
+    case JInfo(_, _, ix, _) =>
       List( "ix" -> JString(ix.toString) )
   }
 
 }
 object DisplayForFacadeList extends DisplayRule with DoAny {
   override def apply(ji: JInfo) = ji match {
-    case JInfo(jv, _, ix) =>
+    case JInfo(jv, _, ix, _) =>
       def s = jv lookup "name"
       def p = jv lookup "id"
       def r = jv lookup "type"
@@ -171,7 +177,7 @@ object DisplayForFacadeList extends DisplayRule with DoAny {
 }
 object DisplayForFacadeJson extends DisplayRule {
   override def apply(ji: JInfo) = ji match {
-    case JInfo(jv, _,_) =>
+    case JInfo(jv, _,_,_) =>
       List( "body" -> jv )
   }
 }
@@ -179,8 +185,8 @@ trait ResultTransform extends Query with Function1[JInfo, JInfo]
 case class ResultTranslate(dictionary: Option[Dictionary]) extends ResultTransform {
   override def apply(i: JInfo) = 
     i match {
-    case JInfo(jv, f, ix) =>
-      dictionary map {d => JInfo(d translate jv, f, ix)} getOrElse i
+    case JInfo(jv, f, ix, raw) =>
+      dictionary map {d => JInfo(d translate jv, f, ix, raw)} getOrElse i
   }
 }
 
@@ -344,7 +350,7 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
       case "forFacadeList"  :: xs =>
         PrintAsJArray +: DisplayForFacadeList +: DisplayIndex +: unl(xs)
       case "forFacadeRaw" :: xs =>
-        PrintPretty +: unl(xs)
+        PrintPretty +: DisplayRaw +: unl(xs)
       case "forFacadeInfo" :: xs =>
         PrintCompact +: DisplayForFacadeJson +: DisplayFileName +: unl(xs)
       case "num" :: xs => PrintNum +: unl(xs)
