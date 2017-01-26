@@ -37,6 +37,12 @@ trait UT {
 
   def id[A](a: A): A = a
 
+  def optToE[L,R](orElse: L)(o: Option[R]): \/[L,R] =
+    o match {
+      case Some(r) => r.right
+      case None => orElse.left
+    }
+
   private[this] def itself = this
   implicit def toUTListOps[A](ls: List[A]): UTListOps[A] = new UTListOps[A] {
     def tool = itself
@@ -60,11 +66,6 @@ trait DoAny extends UT {
       case Some((k,v)) => v.some
     }
 
-  def optToE[L,R](orElse: L)(o: Option[R]): \/[L,R] =
-    o match {
-      case Some(r) => r.right
-      case None => orElse.left
-    }
   def lookupE(jv: JValue)(jkey: JValue): (Error \/ JField) =
     jkey match {
       case JString(key) => lookupE(jv, key)
@@ -84,10 +85,29 @@ trait DoAny extends UT {
     }
 
 }
+object JValueOrder {
+  private[this] def rider[A](asc: Boolean)(ord: Order[A])(x: A)(y: A): Ordering =
+    asc match {
+      case true => ord order (x,y)
+      case false => ord order (y,x)
+    }
+  def order(asc: Boolean)(x: JValue, y: JValue): Ordering = {
+    (x,y) match {
+      case (JString(a), JString(b)) =>
+        rider(asc)(ToScalazOrderFromOrdering(scala.math.Ordering.String))(a)(b)
+      case (JInt(a), JInt(b)) =>
+        rider(asc)(ToScalazOrderFromOrdering(scala.math.Ordering.BigInt))(a)(b)
+      case (JString(_), JInt(_)) => Ordering.LT
+      case (JInt(_), JString(_)) => Ordering.GT
+      case _ => Ordering.GT // 比較できないものは後ろへ
+    }
+  }
+}
 
 trait JVOps extends UT {
   protected[this] def tool: DoAny
   protected[this] def self: JValue
+  def has(key: String): Boolean = this.lookup(key).isDefined
   def lookup(key: String): Option[JValue] =
     tool.lookup(self, key)
   def lookupE(key: String): (Error \/ JValue) =

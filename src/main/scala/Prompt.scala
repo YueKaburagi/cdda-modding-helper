@@ -189,6 +189,18 @@ case class ResultTranslate(dictionary: Option[Dictionary]) extends ResultTransfo
       dictionary map {d => JInfo(d translate jv, f, ix, raw)} getOrElse i
   }
 }
+trait SortOrder {val asc: Boolean}
+object Desc extends SortOrder { override val asc = false }
+object Asc extends SortOrder { override val asc = true }
+trait Sorter extends Query with Function1[Seq[JInfo], Seq[JInfo]]
+case class SortByValue(key: String, ord: SortOrder = Asc) extends Sorter with DoAny {
+  override def apply(src: Seq[JInfo]) = {
+    val (y,n) = src partition (_.jv has key)
+    val order = {optionOrder(Order.order(JValueOrder order ord.asc))}
+    {y.sortBy{ji: JInfo => ji.jv lookup key}(order.toScalaOrdering)} ++ n
+  }
+} // translate の後に sort したいときは？
+
 
 
 class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None) extends DoAny with Loader {
@@ -199,6 +211,7 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
 
   import prompterror._
 
+  // どこかで Map[query,result] をキャッシュしときたい
   def parseQueryString(input: String): (Error \/ Queries) =
     ws split input toList match {
         case "lookup" :: xs => {LookupQueryString +: unl(xs)} right
@@ -211,7 +224,8 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
       qs <- parseQueryString(input)
       ifs <- getIfs(qs)
       jis <- search(ifs)
-      pf <- printFormat( qs.displayRules )( jisTransform(qs)(jis) ).right
+      st <- sort(qs.sorter)(jis toSeq).right
+      pf <- printFormat( qs.displayRules )( jisTransform(qs)(st) ).right
       d <- display( qs.printMode )( pf ).right
     } yield { d }
 
@@ -241,7 +255,7 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
       case None => NoDictionary.left
     }
   }
-  def jisTransform(qs: Queries)(jis: Set[JInfo]): Set[JInfo] = {
+  def jisTransform(qs: Queries)(jis: Seq[JInfo]): Seq[JInfo] = {
     def num = qs.printRules.flatMap {
       case PrintUpTo(n) => n.some
       case _ => None
@@ -258,7 +272,7 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
   def transform(rts: List[ResultTransform])(ji: JInfo): JInfo =
     (ji /: rts){case (a,b) => b apply a}
 
-  def printFormat(drs: Set[DisplayRule])(js: Set[JInfo]): Set[JObject] =
+  def printFormat(drs: Set[DisplayRule])(js: Seq[JInfo]): Seq[JObject] =
     js map {
       ji =>
       if (drs isEmpty) {
@@ -268,7 +282,13 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
       }
     } map {JObject(_)}
 
-  def display(pm: PrintMode)(js: Set[JObject]): Unit = {
+  def sort(sorter: Option[Sorter])(js: Seq[JInfo]): Seq[JInfo] =
+    sorter match {
+      case Some(s) => s(js)
+      case None => js
+    }
+
+  def display(pm: PrintMode)(js: Seq[JObject]): Unit = {
     pm match { 
       case PrintPretty =>
         js foreach {jv => println( prend(jv) )} 
@@ -290,6 +310,7 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
     private[this] var pm: PrintMode = PrintPretty
     private[this] var prs: Set[PrintRule] = Set.empty
     private[this] var rts: List[ResultTransform] = List.empty
+    private[this] var srt: Option[Sorter] = None
     var bad: Option[Query] = None
 
     def dictionaryFilter = dfs
@@ -298,6 +319,7 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
     def printMode = pm
     def printRules = prs
     def resultTransforms = rts
+    def sorter = srt
 
     def withTranslate: Boolean = dictionaryFilter contains LookupQueryString
 
@@ -326,6 +348,8 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
           pm = p
         case pr: PrintRule =>
           prs = prs + pr
+        case s: Sorter =>
+          srt = s.some
 	case BadQuery =>
 	  bad = BadQuery.some
       }
@@ -347,6 +371,9 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
       case "translate" :: xs => ResultTranslate(dictionary) +: unl(xs)
       case "disp" :: "path" :: xs => DisplayFileName +: unl(xs)
       case "short" :: xs => PrintCompact +: unl(xs)
+      case "sort" :: "by" :: key :: xs => SortByValue(key) +: unl(xs)
+      case "sort" :: "asc" :: "by" :: key :: xs => SortByValue(key, Asc) +: unl(xs)
+      case "sort" :: "desc" :: "by" :: key :: xs => SortByValue(key, Desc) +: unl(xs)
       case "forFacadeList"  :: xs =>
         PrintAsJArray +: DisplayForFacadeList +: DisplayIndex +: unl(xs)
       case "forFacadeRaw" :: xs =>
@@ -381,6 +408,9 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
   // partial match 
   val pPartialValue = """=\?([^\s]+)""".r
   val pPartialField = """([^\s]+)=\?([^\s]+)""".r
+  // negative !(.*)
+  // partial  ?(.*)
+  // escape   \(.*)
 
   def consoleEncoding = Configuration.consoleEncoding
   def wrappedPrompt() {

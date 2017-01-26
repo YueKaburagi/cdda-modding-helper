@@ -78,6 +78,8 @@ object DictLoader {
 }
 
 class Dictionary(src: Map[DictionaryElement, List[String]]) {
+  // 逆向きのキャッシュをつくって高速化を図りたい
+
   def lookup(str: String): List[(DictionaryElement, String)] = 
   {src filter {case (k,v) => k.str contains str} toList} flatMap {case (k,vs) => vs map {(k,_)}}
 
