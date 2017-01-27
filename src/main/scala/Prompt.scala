@@ -151,6 +151,24 @@ object DisplayFileName extends DisplayRule {
       List( "file" -> JString( Configuration cddaRelativePath f ) )
   }
 }
+case class DisplayModName(b: Option[Browser]) extends DisplayRule {
+  override def apply(ji: JInfo) =
+    b flatMap {_ whereis ji} match {
+      case Some(ModInfo(_,_,n,_)) =>
+        List( "modname" -> JString( n ) )
+      case _ =>
+        Nil
+    }
+}
+case class DisplayModIdent(b: Option[Browser]) extends DisplayRule {
+  override def apply(ji: JInfo) =
+    b flatMap {_ whereis ji} match {
+      case Some(ModInfo(_,x,_,_)) =>
+        List( "modident" -> JString( x ) )
+      case _ =>
+        Nil
+    }
+}
 case class DisplayThisValue(key: String) extends DisplayRule with DoAny {
   override def apply(ji: JInfo) = ji match {
     case JInfo(jv, f, ix, _) =>
@@ -366,11 +384,12 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
     def empty: Queries = new Queries {}
   }
 
+
   def unl(coms: List[String]): Queries = {
     coms match {
       case Nil => Queries.empty
       case "no" :: xs => unl(xs).not
-//      case "item" :: xs => HasKey("volume") +: unl(xs)
+//      case "item" :: xs => HasKey("volume") +: Not(HasField("type","speech")) +: unl(xs)
 //      case "recipe" :: xs => HasField("type", JString("recipe")) +: unl(xs)
 //    レシピを見に行くには、dictからnameを貰った上で、nameでitemを探して、そのitemのidでrecipeを探さないといけない
       case "show" :: s :: xs => DisplayThisValue(s) +: unl(xs)
@@ -387,8 +406,13 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
       case "forFacadeRaw" :: xs =>
         PrintPretty +: DisplayRaw +: unl(xs)
       case "forFacadeInfo" :: xs =>
-        PrintCompact +: DisplayForFacadeJson +: DisplayFileName +: unl(xs)
-      case "num" :: xs => PrintNum +: unl(xs)
+        PrintCompact +: DisplayForFacadeJson +: DisplayFileName +:
+        DisplayModName(browser) +: DisplayModIdent(browser) +: unl(xs)
+      case "forFacadeModList" :: xs =>
+        PrintCompact +:
+        HasField("type", "MOD_INFO") +: DisplayThisValue("ident") +:
+        DisplayThisValue("name") +:unl(xs)
+      case "num" :: xs => PrintNum +: PrintAll +: unl(xs)
       case "all" :: xs => PrintAll +: unl(xs)
       case "up" :: "to" :: num :: xs => 
 	try {
@@ -419,6 +443,10 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
   // negative !(.*)
   // partial  ?(.*)
   // escape   \(.*)
+  val negativeValue = """!(.+)""".r
+  val partialValue = """\?(.+)""".r
+  val excapeValue = """\\(.+)""".r
+  val negativeKey = """(.+)!""".r
 
   def consoleEncoding = Configuration.consoleEncoding
   def wrappedPrompt() {
