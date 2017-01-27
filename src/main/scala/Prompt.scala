@@ -49,6 +49,11 @@ case class Or(fs: Set[JItemFilter]) extends JItemFilter {
     else {fs exists (_ apply (id,ji))}
 }
 
+case class Belongs(modinfo: ModInfo) extends JItemFilter {
+  override def apply(id: Browser#Index, ji: JInfo) =
+    Browser.modContains(modinfo)(ji)
+}
+
 case class HasKey(str: String) extends JObjectFilter {
   override def withJObject(fs: List[JField]) = 
     fs exists {case (k,_) => k == str}
@@ -264,6 +269,7 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
     js map {transform(qs.resultTransforms)}
   }
 
+  // ここでソースをチョイスする？
   def search(ifs: Set[JItemFilter]): (PromptError \/ Set[JInfo]) =
     browser match {
       case None => NoBrowser.left
@@ -374,6 +380,8 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
       case "sort" :: "by" :: key :: xs => SortByValue(key) +: unl(xs)
       case "sort" :: "asc" :: "by" :: key :: xs => SortByValue(key, Asc) +: unl(xs)
       case "sort" :: "desc" :: "by" :: key :: xs => SortByValue(key, Desc) +: unl(xs)
+      case "mod" :: ident :: xs =>
+        {browser flatMap {_ lookupByIdent ident} map {Belongs(_)} getOrElse BadQuery} +: unl(xs)
       case "forFacadeList"  :: xs =>
         PrintAsJArray +: DisplayForFacadeList +: DisplayIndex +: unl(xs)
       case "forFacadeRaw" :: xs =>

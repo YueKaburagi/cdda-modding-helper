@@ -6,18 +6,22 @@ import scala.language.postfixOps
 import scalaz.Scalaz._
 
 import org.json4s._
+import org.json4s.JsonDSL._
 
 import java.io.File
 
 case class JInfo(jv: JValue, file: File, index: Browser#Index, raw: JValue)
-case class ModInfo(root: File, ident: String, name: String)
+case class ModInfo(root: File, ident: String, name: String, ji: JInfo)
 
 object Browser {
   def isCDDA(mi: => ModInfo): Boolean =
     mi.ident == "dda"
 
   def whereis(mis: => Set[ModInfo])(target: => JInfo): Option[ModInfo] =
-    mis find {case ModInfo(rt,_,_) => target.file.getCanonicalPath startsWith rt.getCanonicalPath}
+    mis find {case ModInfo(rt,_,_,_) => target.file.getCanonicalPath startsWith rt.getCanonicalPath}
+
+  def modContains(mi: => ModInfo)(ji: => JInfo): Boolean =
+    ji.file.getCanonicalPath startsWith mi.root.getCanonicalPath
 }
 
 trait Browser extends UT {
@@ -27,7 +31,23 @@ trait Browser extends UT {
   val mods: Set[ModInfo] = Set.empty
   // cache
 
+  def modsAsSource: Map[Index, JInfo] =
+    mods map {
+      case ModInfo(f,ident,name,JInfo(_,_,ix,r)) =>
+        val jv: JObject = {("ident" -> ident) ~ ("name" -> name)}
+        (ix, JInfo(jv,f,ix,r))
+    } toMap
+  def indexesAsSource(ids: => Set[String]): Map[Index, JInfo] =
+    ids flatMap {this lookupById _} toMap
+  def source: Map[Index, JInfo] = infos
+
+
   private[this] def jvs: Set[JValue] = infos.values.toSet map {ji: JInfo => ji.jv}
+
+  val whereis = Browser.whereis(mods) _
+
+  def lookupByIdent(ident: => String): Option[ModInfo] =
+    mods find (_.ident == ident)
 
   def lookupById(str: => String): Option[(Index, JInfo)] = {
     def i = str.toInt
@@ -72,16 +92,19 @@ object BrowserLoader extends Loader with DoAny {
         val t = nextId()
         (t, JInfo(jv,f,t,jv))
     }
-    val modinfos = jz flatMap {
-      case (jv,f) =>
+    val modinfos = jinfos map second flatMap {
+      case ji@JInfo(jv,f,_,_) =>
         jv lookup "type" exists (_ == JString("MOD_INFO")) match {
           case false => None
           case true =>
             for {
-              root <- Option(f getParentFile)
+              root <- jv lookup "path" flatMap {
+                case JString(s) => s.some
+                case _ => None
+              } orElse {".".some} flatMap {s => Option(f getParentFile) map {new File(_, s)}}
               ident <- jv lookup "ident" flatMap {case JString(s) => s.some; case _ => None}
               name <- jv lookup "name" flatMap {case JString(s) => s.some; case _ => None}
-            } yield ( ModInfo(root,ident,name) )
+            } yield ( ModInfo(root,ident,name,ji) )
         }
     } toSet
     // 検索高速化のためのインデックス作成 (copy-from用)
