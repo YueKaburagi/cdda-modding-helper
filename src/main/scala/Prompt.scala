@@ -185,18 +185,36 @@ object DisplayIndex extends DisplayRule {
 object DisplayForFacadeList extends DisplayRule with DoAny {
   override def apply(ji: JInfo) = ji match {
     case JInfo(jv, _, ix, _) =>
-      def s = jv lookup "name"
-      def p = jv lookup "id"
-      def r = jv lookup "type"
+      def n = jv lookup "name"
+      def r = jv lookup "result"      
+      def i = jv lookup "id"
+      def t = jv lookup "type"
       def s_ = jv lookup "symbol"
       def y_ = jv lookup "sym" map {
         case JInt(n) => JString(n.toChar.toString)
         case x => x
       }
-      List( s orElse p orElse r orElse JString("(no name/id/type)").some map ("name" -> _)
-        , s_ orElse y_ map ("symbol" -> _)
-        , jv lookup "color" map ("color" -> _) ).flatten
+      { List( n orElse r orElse i orElse t orElse JString("(?)").some map ("name" -> _)
+        , s_ orElse y_ map ("symbol" -> _)).flatten |+|
+        {{jv lookup "color" toList} flatMap colorNormalize}
+      }
   }
+  private[this] def colorNormalize(jv: JValue): List[JField] =
+    jv match {
+      case JString(col) =>
+        col match {
+          case item(c) => List("color" -> JString(c))
+          case light(_) => List("color" -> JString(col))
+          case dark(_) => List("color" -> JString(col))
+          case double(c,b) => List("color" -> JString(c), "bgcolor" -> JString(b))
+          case _ => List("color" -> JString(col))
+        }
+      case _ => List("color" -> jv)
+    }
+  private[this] val item = """i_(.+)""".r
+  private[this] val light = """light_(.+)""".r
+  private[this] val dark = """dark_(.+)""".r
+  private[this] val double = """(.+)_(.+)""".r
 }
 object DisplayForFacadeJson extends DisplayRule {
   override def apply(ji: JInfo) = ji match {
@@ -498,6 +516,8 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
   " all             検索結果を全て表示する (up to 指定を無視する)" ::
   " show <key>      見つけたjsonオブジェクトの<key>の値のみを表示する" ::
   " translate       jsonオブジェクト内の文字列を翻訳して出力する" ::
+  " sort [asc|desc] by <key>" ::
+  " mod <mod_ident> " ::
   " disp path       そのjsonオブジェクトがどのfileにあったかを表示する" ::
   " short           コンパクト表示を行う" ::
   " num             検索結果の数を表示する" ::
