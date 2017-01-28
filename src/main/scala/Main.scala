@@ -102,15 +102,16 @@ object Main extends Loader with DoAny {
   object Browse extends Mode
   object Trans extends Mode
   object Po extends Mode
-  private[this] def repf(mode: Mode, args: List[String], target: Option[String]) {
+  private[this] def repf(mode: Mode, args: List[String], target: Option[String], cf: File) {
     args match {
-      case "-w" :: v :: xs => repf(mode, xs, v.some)
-      case "-b" :: xs => repf(Browse, xs, target)
-      case "-p" :: xs => repf(Po, xs, target)
+      case "-w" :: v :: xs => repf(mode, xs, v.some, cf)
+      case "-b" :: xs => repf(Browse, xs, target, cf)
+      case "-p" :: xs => repf(Po, xs, target, cf)
       case "--help" :: _ => showHelp()
       case "-h" :: _ => showHelp()
+      case "--config" :: s :: xs => repf(mode, xs, target, new File(s))
       case a :: b :: Nil =>
-	Configuration.load(target)
+	Configuration.load(target, cf)
         mode match {
 	  case Browse =>
             new Prompt(a.some, b.some).wrappedPrompt()
@@ -120,7 +121,7 @@ object Main extends Loader with DoAny {
 	    TranslationHelper.build( new File(a), new File(b) )
 	}
       case a :: Nil =>
-        Configuration.load(target)
+        Configuration.load(target, cf)
         mode match {
 	  case Browse =>
             new Prompt(a.some).wrappedPrompt()
@@ -131,7 +132,7 @@ object Main extends Loader with DoAny {
 	    TranslationHelper.build( dir, new File({dir getName} + ".po"))
 	}
       case Nil =>
-        Configuration.load(target)
+        Configuration.load(target, cf)
         mode match {
 	  case Browse =>
 	    new Prompt().wrappedPrompt()
@@ -156,12 +157,13 @@ object Main extends Loader with DoAny {
     "" ::
     "OPTION" ::
     "    -w <targetVersion>" ::
+    "    --config <__config.json>" ::
     Nil
     println(help mkString("","\n",""))
   }
 
   def main(args: Array[String]) {
-    repf(Trans, args toList, None)
+    repf(Trans, args toList, None, new File("__config.json"))
   }
 
 }

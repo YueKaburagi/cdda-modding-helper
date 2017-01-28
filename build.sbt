@@ -3,7 +3,7 @@ lazy val root = (project in file(".")).
   settings(
     organization := "cddamod",
     name := "cdda-modding-helper",
-    version := "1.8.0",
+    version := "1.8.1",
     scalaVersion := "2.11.8",
     libraryDependencies ++= Seq(
       "org.scalaz" %% "scalaz-core" % "7.2.+",

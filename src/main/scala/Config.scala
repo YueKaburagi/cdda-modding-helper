@@ -41,14 +41,15 @@ object Configuration extends Loader with DoAny {
 
 
 
-  def load(version: Option[String]) {
-    loadOption(new File("__config.json")) foreach {
+  // conffile の 位置によって 幾つかのpath は変化する？
+  def load(version: Option[String], confFile: File) {
+    loadOption(confFile) foreach {
       jv =>
       jv lookup "console_encoding" foreach {
         case JString(s) => this.consoleEncoding = s
         case o => Log.warn("console_encoding should be string.")
       }
-      loadSettings(jv)
+      loadSettings(jv, confFile)
       version orElse {
         jv lookup "default_version" flatMap {
 	  case JString(s) => s.some
@@ -57,31 +58,42 @@ object Configuration extends Loader with DoAny {
       } map {
 	v => jv lookupE v match {
 	  case -\/(e) => Log.error(e.toString)
-	  case \/-(j) => loadSettings(j)
+	  case \/-(j) => loadSettings(j, confFile)
 	}
       }
     }
   }
-  private[this] def loadSettings(jv: JValue) {
-    jv match {
-      case JObject(fs) => fs foreach {
-	case ("cdda_root", JString(cddaRoot)) =>
-          this.cddaRoot = new File(cddaRoot).some
-	case ("po_path", JString(poPath)) =>
-          this.poPath = new File(poPath).some
-	case ("destination", JString(destPath)) =>
-          this.destination = destPath
-	case ("source", JString(srcPath)) =>
-          this.source = srcPath.some
-        case ("translation_targets", JArray(vs)) =>
-          this.translationTargets =
-            vs flatMap {
-              case JString(s) => s.some
-              case _ => None
-            } toSet
-	case _ => // do nothing
+  private[this] def newPath(rt: File)(f: String): File =
+    if (new File(f).isAbsolute) {
+      new File(f)
+    } else {
+      new File(rt, f).getCanonicalFile
+    }
+  // confFile に対して relative なのは cdda_root と po_path だけ (試験的変更)
+  private[this] def loadSettings(jv: JValue, confFile: File) {
+    Option(confFile.getCanonicalFile.getParentFile) foreach {
+      dir => 
+      jv match {
+        case JObject(fs) => fs foreach {
+	  case ("cdda_root", JString(cddaRoot)) =>
+            // cddaRoot is relative?
+            this.cddaRoot = newPath(dir)(cddaRoot).some
+	  case ("po_path", JString(poPath)) =>
+            this.poPath = newPath(dir)(poPath).some
+	  case ("destination", JString(destPath)) =>
+            this.destination = destPath 
+	  case ("source", JString(srcPath)) =>
+            this.source = srcPath.some
+          case ("translation_targets", JArray(vs)) =>
+            this.translationTargets =
+              vs flatMap {
+                case JString(s) => s.some
+                case _ => None
+              } toSet
+	  case _ => // do nothing
+        }
+        case _ => Log.error("format error: \"__confing.json\"")
       }
-      case _ => Log.error("format error: \"__confing.json\"")
     }
   }
 
