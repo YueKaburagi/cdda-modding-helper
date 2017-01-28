@@ -285,12 +285,12 @@ class Prompt(_browser: Option[String] = None, _dictionary: Option[String] = None
     dictionary match {
       case Some(d) =>
         {{ofs map {f: JItemFilter => f match {
-          case HasValueP(v) => Or( d lookupS v map {x => HasValue(x)} )
-          case HasValue(v) => Or( d findS v map {x => HasValue(x)} )
-          case HasFieldPP(k,v) => Or( d lookupS v map {x => HasFieldPX(k,x)} )
-          case HasFieldXP(k,v) => Or( d lookupS v map {x => HasField(k,x)} )
-          case HasFieldPX(k,v) => Or( d findS v map {x => HasFieldPX(k,x)} )
-          case HasField(k,v) => Or( d findS v map  {x => HasField(k,x)})
+          case HasValueP(v) => Or( {{d lookupS v} + v} map {x => HasValue(x)} )
+          case HasValue(v) => Or( {{d findS v} + v} map {x => HasValue(x)} )
+          case HasFieldPP(k,v) => Or( {{d lookupS v} + v} map {x => HasFieldPX(k,x)} )
+          case HasFieldXP(k,v) => Or( {{d lookupS v} + v} map {x => HasField(k,x)} )
+          case HasFieldPX(k,v) => Or( {{d findS v} + v} map {x => HasFieldPX(k,x)} )
+          case HasField(k,v) => Or( {{d findS v} + v} map  {x => HasField(k,x)})
           case o => o
         }}} |+| others}.right
       case None => NoDictionary.left
