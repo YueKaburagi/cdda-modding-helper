@@ -40,5 +40,5 @@ usage (Japanese) > [Wiki](https://github.com/YueKaburagi/cdda-modding-helper/wik
 といった発想から作成されています    
 
 [cdda-anything-i-needs](https://github.com/YueKaburagi/cdda-anything-i-needs) で実際に使ってます  
-comming soon [cdda-modding-helper-facade](https://github.com/YueKaburagi/cdda-modding-helper-facade)   
+Pre release [cdda-modding-helper-facade](https://github.com/YueKaburagi/cdda-modding-helper-facade)   
 
